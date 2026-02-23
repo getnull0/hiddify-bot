@@ -1,0 +1,54 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+# --- OS & Editors ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+# --- Logs & DB ---
+*.log
+logs/
+*.sqlite3
+*.db
+# --- Security (CRITICAL) ---
+.env.*
+*.key
+*.pem
+*.p12
+*.jks
+credentials.json
+service-account*.json
+# --- Temp & Backup ---
+*.bak
+*.tmp
+*.secret
+private/
+# --- AI Assistants ---
+.gemini/
+GEMINI.md
+.claude/
+CLAUDE.md
+# --- GCC (Gemini Command Center) ---
+launcher_config.json
+DOCS/ARCHIVE/
+# --- Python ---
+*.pyd
+*.pyo
+*.so
+.eggs/
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+DOCS/archive/
