@@ -1,3 +1,6 @@
+from utils.html import esc as _esc
+
+
 def server_status(data: dict) -> str:
     stats = data.get("stats", data)  # поддержка и вложенного и плоского
     s = stats.get("system", {})
@@ -46,7 +49,7 @@ def server_status(data: dict) -> str:
         lines.append("")
         lines.append("⚡ <b>CPU топ-5:</b>")
         for name, pct in cpu_top[:5]:
-            lines.append(f"  {name}: {pct:.1f}%")
+            lines.append(f"  {_esc(name)}: {pct:.1f}%")
 
     return "\n".join(lines)
 
@@ -54,6 +57,6 @@ def server_status(data: dict) -> str:
 def panel_info(data: dict) -> str:
     return (
         f"ℹ️ <b>Hiddify Panel</b>\n\n"
-        f"Версия: <b>{data['version']}</b>\n"
-        f"Админ: {data['admin_name']} ({data['admin_mode']})"
+        f"Версия: <b>{_esc(data['version'])}</b>\n"
+        f"Админ: {_esc(data['admin_name'])} ({_esc(data['admin_mode'])})"
     )

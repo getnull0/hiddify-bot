@@ -3,4 +3,14 @@ venv/
 __pycache__/
 *.pyc
 .env
+.env.example
 .git/
+.gitignore
+.github/
+.pre-commit-config.yaml
+pyproject.toml
+tests/
+LICENSE
+README.md
+AGENTS.md
+*.md

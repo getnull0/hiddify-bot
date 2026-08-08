@@ -1,11 +1,11 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
-from aiogram.utils.text_decorations import html_decoration as hd
 
 import services.server_service as svc
 from filters.admin import IsAdmin
 from formatters.server import server_status, panel_info
 from keyboards.inline import logs_menu_kb, generic_back_kb
+from utils.html import esc
 
 router = Router()
 router.callback_query.filter(IsAdmin())
@@ -36,7 +36,7 @@ async def logs_view(cb: CallbackQuery):
     await cb.answer()
     content = await svc.get_logs(filename)
     await cb.message.edit_text(
-        f"📋 <b>Лог: {filename}</b>\n\n<pre>{hd.quote(content)}</pre>",
+        f"📋 <b>Лог: {filename}</b>\n\n<pre>{esc(content)}</pre>",
         reply_markup=generic_back_kb(back_cb="logs_menu"),
     )
 

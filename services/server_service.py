@@ -2,11 +2,14 @@
 import asyncio
 import html
 import re
+
 import api.hiddify as api
+
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
 def _strip_html(text: str) -> str:
-    return html.unescape(re.sub(r"<[^>]+>", "", text))
+    return html.unescape(_HTML_TAG_RE.sub("", text))
 
 
 async def get_status() -> dict:

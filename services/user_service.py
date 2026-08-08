@@ -44,9 +44,9 @@ async def search(query: str) -> list[dict]:
     users = await api.get_users()
     return [
         u for u in users
-        if q in u.get("name", "").lower()
-        or q == str(u.get("telegram_id", ""))
-        or q in str(u.get("uuid", "")).lower()
+        if q in (u.get("name") or "").lower()
+        or q == str(u.get("telegram_id") or "")
+        or q in str(u.get("uuid") or "").lower()
     ]
 
 

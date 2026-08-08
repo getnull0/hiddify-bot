@@ -9,17 +9,18 @@ from aiogram.types import CallbackQuery, URLInputFile
 
 import services.account_service as svc
 import services.user_service as user_svc
-from config import ADMIN_IDS
+from config import ADMIN_IDS, QR_API_URL
 from filters.admin import IsAdmin
 from formatters.user import account_card
-from keyboards.inline import generic_back_kb, user_generic_back_kb, my_link_kb, my_account_kb, photo_close_kb
+from keyboards.inline import generic_back_kb, user_generic_back_kb, my_link_kb, my_account_kb, photo_nav_kb, apps_kb
+from utils.html import esc
 
 
 router = Router()
 
 
 def _qr_url(sub_url: str) -> str:
-    return f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data={quote(sub_url, safe='')}"
+    return f"{QR_API_URL}?size=300x300&margin=10&data={quote(sub_url, safe='')}"
 
 
 async def _render_account(cb: CallbackQuery, uuid: str, is_admin: bool):
@@ -72,7 +73,7 @@ async def my_link(cb: CallbackQuery):
     home = "menu" if is_admin else "user_menu"
     await cb.message.edit_text(
         f"🔑 <b>Ссылка подписки</b>\n\n"
-        f"<code>{data['sub_url']}</code>\n\n"
+        f"<code>{esc(data['sub_url'])}</code>\n\n"
         f"<i>Нажми на ссылку чтобы скопировать\n"
         f"или QR-код для сканирования</i>",
         reply_markup=my_link_kb(back_cb=back, home_cb=home),
@@ -87,10 +88,13 @@ async def my_qr(cb: CallbackQuery):
         return
     data = await svc.get_account(user["uuid"])
     sub_url = data["sub_url"]
+    is_admin = cb.from_user.id in ADMIN_IDS
+    back = "admin_my_account" if is_admin else "my_account"
+    home = "menu" if is_admin else "user_menu"
     await cb.message.answer_photo(
         URLInputFile(_qr_url(sub_url), filename="qr.png"),
-        caption=f"📲 <b>Отсканируй QR-код</b>\n\nИли скопируй ссылку:\n<code>{sub_url}</code>",
-        reply_markup=photo_close_kb(),
+        caption=f"📲 <b>Отсканируй QR-код</b>\n\nИли скопируй ссылку:\n<code>{esc(sub_url)}</code>",
+        reply_markup=photo_nav_kb(back_cb="my_link", home_cb=home),
     )
 
 
@@ -101,7 +105,6 @@ async def my_apps(cb: CallbackQuery):
     if not user:
         await cb.message.edit_text("❌ Аккаунт не найден.", reply_markup=user_generic_back_kb())
         return
-    from keyboards.inline import apps_kb
     is_admin = cb.from_user.id in ADMIN_IDS
     back = "admin_my_account" if is_admin else "my_account"
     home = "menu" if is_admin else "user_menu"

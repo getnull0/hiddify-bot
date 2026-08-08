@@ -47,7 +47,7 @@ def users_list_kb(users: list[dict], page: int = 0, page_size: int = 8) -> Inlin
         else:
             status = "⛔"
         used = u.get("current_usage_GB") or 0.0
-        label = f"{status} {u['name']} · {used:.1f}/{limit:.0f}GB"
+        label = f"{status} {u.get('name', '—')} · {used:.1f}/{limit:.0f}GB"
         kb.row(InlineKeyboardButton(text=label, callback_data=f"user:{u['uuid']}"))
 
     total_pages = max(1, (len(users) - 1) // page_size + 1)
@@ -59,7 +59,7 @@ def users_list_kb(users: list[dict], page: int = 0, page_size: int = 8) -> Inlin
     return kb.as_markup()
 
 
-def user_actions_kb(uuid: str, limit_gb: float) -> InlineKeyboardMarkup:
+def user_actions_kb(uuid: str, limit_gb: float, list_page: int = 0) -> InlineKeyboardMarkup:
     """limit_gb == 0 → пользователь заблокирован (нужен визард для разблокировки)."""
     kb = InlineKeyboardBuilder()
 
@@ -91,7 +91,7 @@ def user_actions_kb(uuid: str, limit_gb: float) -> InlineKeyboardMarkup:
     kb.row(InlineKeyboardButton(
         text="🗑 Удалить", callback_data=f"user_delete_confirm:{uuid}", style="danger"
     ))
-    kb.row(*nav_row(back_cb="users_list:0", home_cb="menu"))
+    kb.row(*nav_row(back_cb=f"users_list:{list_page}", home_cb="menu"))
     return kb.as_markup()
 
 
@@ -118,19 +118,21 @@ def confirm_delete_kb(uuid: str) -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
+_LOG_FILES = [
+    ("hiddify_panel.out.log", "🖥 Панель (вывод)"),
+    ("hiddify_panel.err.log", "🔴 Панель (ошибки)"),
+    ("hiddify_panel_background_tasks.out.log", "⚙️ Фон (вывод)"),
+    ("hiddify_panel_background_tasks.err.log", "🔴 Фон (ошибки)"),
+    ("restart.log", "🔄 Перезапуск"),
+    ("panel.log", "📋 panel.log"),
+    ("backup.log", "💾 Бэкап"),
+    ("daily_actions.log", "📅 Ежедневные задачи"),
+]
+
+
 def logs_menu_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    log_files = [
-        ("hiddify_panel.out.log", "🖥 Панель (вывод)"),
-        ("hiddify_panel.err.log", "🔴 Панель (ошибки)"),
-        ("hiddify_panel_background_tasks.out.log", "⚙️ Фон (вывод)"),
-        ("hiddify_panel_background_tasks.err.log", "🔴 Фон (ошибки)"),
-        ("restart.log", "🔄 Перезапуск"),
-        ("panel.log", "📋 panel.log"),
-        ("backup.log", "💾 Бэкап"),
-        ("daily_actions.log", "📅 Ежедневные задачи"),
-    ]
-    for filename, label in log_files:
+    for filename, label in _LOG_FILES:
         kb.row(InlineKeyboardButton(text=label, callback_data=f"logs:{filename}"))
     kb.row(*nav_row(home_cb="menu"))
     return kb.as_markup()
@@ -210,6 +212,13 @@ def photo_close_kb() -> InlineKeyboardMarkup:
     """Одна кнопка «Закрыть» для фото-сообщений (QR и т.п.)."""
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="✕ Закрыть", callback_data="close"))
+    return kb.as_markup()
+
+
+def photo_nav_kb(back_cb: str = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
+    """Навигация для фото-сообщений: [◀️ Назад] [🏠] [✕ Закрыть]."""
+    kb = InlineKeyboardBuilder()
+    kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
     return kb.as_markup()
 
 

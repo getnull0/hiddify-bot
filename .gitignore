@@ -35,8 +35,9 @@ private/
 GEMINI.md
 .claude/
 CLAUDE.md
-# --- GCC (Gemini Command Center) ---
-launcher_config.json
+.crush/
+.cursor/
+.cursorrules
 DOCS/ARCHIVE/
 # --- Python ---
 *.pyd

@@ -6,17 +6,23 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, URLInputFile
 
 import services.user_service as svc
+from config import QR_API_URL
 from filters.admin import IsAdmin
 from formatters.user import user_card
 from keyboards.inline import (
     admin_main_kb, users_list_kb, user_actions_kb,
     confirm_delete_kb, user_link_kb, user_mode_kb, generic_back_kb,
-    fsm_cancel_kb, fsm_nav_kb, photo_close_kb,
+    fsm_cancel_kb, fsm_nav_kb, photo_nav_kb, apps_kb,
 )
+from services.account_service import get_account
+from utils.html import esc
 
 router = Router()
 router.message.filter(IsAdmin())
 router.callback_query.filter(IsAdmin())
+
+_MODE_LABELS = {"monthly": "ежемесячно", "weekly": "еженедельно",
+                "daily": "ежедневно", "no_reset": "без сброса"}
 
 
 # ── FSM ───────────────────────────────────────────────────────────────────────
@@ -49,14 +55,16 @@ class SearchUser(StatesGroup):
 @router.callback_query(F.data.startswith("fsm_cancel:"))
 async def fsm_cancel(cb: CallbackQuery, state: FSMContext):
     back_cb = cb.data.split(":", 1)[1]
+    list_page = (await state.get_data()).get("list_page", 0)
     await state.clear()
     await cb.answer("Отменено")
     if back_cb.startswith("user:"):
         uuid = back_cb.split(":", 1)[1]
         user = await svc.get(uuid)
+        await state.update_data(list_page=list_page)
         await cb.message.edit_text(
             user_card(user),
-            reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+            reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
         )
     else:
         await cb.message.edit_text(
@@ -95,9 +103,10 @@ async def fsm_back(cb: CallbackQuery, state: FSMContext):
 # ── List ──────────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("users_list:"))
-async def users_list(cb: CallbackQuery):
+async def users_list(cb: CallbackQuery, state: FSMContext):
     page = int(cb.data.split(":")[1])
     await cb.answer()
+    await state.update_data(list_page=page)
     users = await svc.get_all()
     if not users:
         await cb.message.edit_text("Нет пользователей.", reply_markup=generic_back_kb())
@@ -111,26 +120,31 @@ async def users_list(cb: CallbackQuery):
 # ── Card ──────────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("user:"))
-async def user_detail(cb: CallbackQuery):
+async def user_detail(cb: CallbackQuery, state: FSMContext):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer()
     user = await svc.get(uuid)
+    # remember where the user came from so Back can return to the right page
+    data = await state.get_data()
+    list_page = data.get("list_page", 0)
+    await state.update_data(viewing_uuid=uuid)
     await cb.message.edit_text(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
 # ── Block / Unblock ───────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("user_block:"))
-async def user_block(cb: CallbackQuery):
+async def user_block(cb: CallbackQuery, state: FSMContext):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer("⛔ Заблокирован")
     user = await svc.block(uuid)
+    list_page = (await state.get_data()).get("list_page", 0)
     await cb.message.edit_text(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
@@ -160,43 +174,46 @@ async def user_unblock_do(msg: Message, state: FSMContext):
         return
     data = await state.get_data()
     uuid = data["uuid"]
+    list_page = data.get("list_page", 0)
     try:
         user = await svc.unblock(uuid, limit)
     except Exception as e:
         await state.clear()
-        await msg.answer(f"❌ Ошибка API: {e}", reply_markup=generic_back_kb())
+        await msg.answer(f"❌ Ошибка API: {esc(str(e))}", reply_markup=generic_back_kb())
         return
     await state.clear()
     await msg.answer(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
 # ── Reset traffic ─────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("user_reset:"))
-async def user_reset(cb: CallbackQuery):
+async def user_reset(cb: CallbackQuery, state: FSMContext):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer("🔄 Трафик сброшен")
     user = await svc.reset_traffic(uuid)
+    list_page = (await state.get_data()).get("list_page", 0)
     await cb.message.edit_text(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
 # ── Extend ────────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("user_extend:"))
-async def user_extend(cb: CallbackQuery):
+async def user_extend(cb: CallbackQuery, state: FSMContext):
     parts = cb.data.split(":")
     uuid, days = parts[1], int(parts[2])
     await cb.answer(f"⏱ +{days} дней")
     user = await svc.extend(uuid, days)
+    list_page = (await state.get_data()).get("list_page", 0)
     await cb.message.edit_text(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
@@ -242,12 +259,13 @@ async def edit_value(msg: Message, state: FSMContext):
         user = await svc.update(uuid, **{field: value})
     except Exception as e:
         await state.clear()
-        await msg.answer(f"❌ Ошибка API: {e}", reply_markup=generic_back_kb())
+        await msg.answer(f"❌ Ошибка API: {esc(str(e))}", reply_markup=generic_back_kb())
         return
+    list_page = data.get("list_page", 0)
     await state.clear()
     await msg.answer(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
@@ -257,11 +275,10 @@ async def edit_value(msg: Message, state: FSMContext):
 async def user_link(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer()
-    from services.account_service import get_account
     data = await get_account(uuid)
     await cb.message.edit_text(
         f"🔑 <b>Ссылка подписки</b>\n\n"
-        f"<code>{data['sub_url']}</code>\n\n"
+        f"<code>{esc(data['sub_url'])}</code>\n\n"
         f"<i>Нажми на ссылку чтобы скопировать\n"
         f"или QR-код для сканирования</i>",
         reply_markup=user_link_kb(uuid),
@@ -272,14 +289,13 @@ async def user_link(cb: CallbackQuery):
 async def user_qr(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer()
-    from services.account_service import get_account
     data = await get_account(uuid)
     sub_url = data["sub_url"]
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data={quote(sub_url, safe='')}"
+    qr_url = f"{QR_API_URL}?size=300x300&margin=10&data={quote(sub_url, safe='')}"
     await cb.message.answer_photo(
         URLInputFile(qr_url, filename="qr.png"),
-        caption=f"📲 <b>QR-код подписки</b>\n\nИли скопируй ссылку:\n<code>{sub_url}</code>",
-        reply_markup=photo_close_kb(),
+        caption=f"📲 <b>QR-код подписки</b>\n\nИли скопируй ссылку:\n<code>{esc(sub_url)}</code>",
+        reply_markup=photo_nav_kb(back_cb=f"user_link:{uuid}", home_cb="menu"),
     )
 
 
@@ -289,7 +305,6 @@ async def user_qr(cb: CallbackQuery):
 async def user_apps(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer()
-    from keyboards.inline import apps_kb
     await cb.message.edit_text(
         "📱 <b>Приложения для подключения</b>\n\n"
         "Нажми на приложение — скачаешь и настроишь через «Импорт подписки».\n\n"
@@ -326,16 +341,17 @@ async def set_tgid_do(msg: Message, state: FSMContext):
         return
     data = await state.get_data()
     uuid = data["uuid"]
+    list_page = data.get("list_page", 0)
     try:
         user = await svc.update(uuid, telegram_id=tg_id)
     except Exception as e:
         await state.clear()
-        await msg.answer(f"❌ Ошибка API: {e}", reply_markup=generic_back_kb())
+        await msg.answer(f"❌ Ошибка API: {esc(str(e))}", reply_markup=generic_back_kb())
         return
     await state.clear()
     await msg.answer(
         f"✅ Telegram ID {tg_id} привязан.\n\n{user_card(user)}",
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
@@ -352,15 +368,14 @@ async def set_mode_menu(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("user_mode:"))
-async def set_mode_do(cb: CallbackQuery):
+async def set_mode_do(cb: CallbackQuery, state: FSMContext):
     _, uuid, mode = cb.data.split(":")
-    mode_labels = {"monthly": "ежемесячно", "weekly": "еженедельно",
-                   "daily": "ежедневно", "no_reset": "без сброса"}
-    await cb.answer(f"✅ {mode_labels.get(mode, mode)}")
+    await cb.answer(f"✅ {_MODE_LABELS.get(mode, mode)}")
     user = await svc.update(uuid, mode=mode)
+    list_page = (await state.get_data()).get("list_page", 0)
     await cb.message.edit_text(
         user_card(user),
-        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0),
+        reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
     )
 
 
@@ -377,11 +392,12 @@ async def delete_confirm(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.regexp(r"^user_delete:[^_]"))
-async def delete_do(cb: CallbackQuery):
+async def delete_do(cb: CallbackQuery, state: FSMContext):
     uuid = cb.data.split(":", 1)[1]
     await cb.answer("🗑 Удалён")
     await svc.delete(uuid)
-    await cb.message.edit_text("✅ Пользователь удалён.", reply_markup=generic_back_kb(back_cb="users_list:0"))
+    list_page = (await state.get_data()).get("list_page", 0)
+    await cb.message.edit_text("✅ Пользователь удалён.", reply_markup=generic_back_kb(back_cb=f"users_list:{list_page}"))
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
@@ -489,7 +505,7 @@ async def create_tg_id(msg: Message, state: FSMContext):
         user = await svc.create(data["name"], data["days"], data["limit_gb"], tg_id)
     except Exception as e:
         await state.clear()
-        await msg.answer(f"❌ Ошибка при создании: {e}", reply_markup=generic_back_kb())
+        await msg.answer(f"❌ Ошибка при создании: {esc(str(e))}", reply_markup=generic_back_kb())
         return
     await state.clear()
     await msg.answer(
@@ -517,10 +533,10 @@ async def search_do(msg: Message, state: FSMContext):
     results = await svc.search(query)
     await state.clear()
     if not results:
-        await msg.answer(f"🔍 По запросу «{query}» ничего не найдено.", reply_markup=generic_back_kb())
+        await msg.answer(f"🔍 По запросу «{esc(query)}» ничего не найдено.", reply_markup=generic_back_kb())
         return
     if len(results) == 1:
         u = results[0]
         await msg.answer(user_card(u), reply_markup=user_actions_kb(u["uuid"], u.get("usage_limit_GB") or 0.0))
     else:
-        await msg.answer(f"🔍 «{query}» — найдено: {len(results)}", reply_markup=users_list_kb(results, 0))
+        await msg.answer(f"🔍 «{esc(query)}» — найдено: {len(results)}", reply_markup=users_list_kb(results, 0))
