@@ -27,22 +27,23 @@ def _contact() -> str:
 async def start(msg: Message, state: FSMContext) -> None:
     await state.clear()
     tg_id = user_id_of(msg)
-    if tg_id in ADMIN_IDS:
-        await msg.answer(texts.ADMIN_MENU, reply_markup=admin_main_kb())
-        return
-    user = await find_by_tg_id(tg_id)
-    if not user:
-        await msg.answer(
-            "👋 Привет!\n\n"
-            "❌ Твой аккаунт не найден в системе.\n\n"
-            f"Для подключения обратись к администратору: {_contact()}"
-        )
-    elif is_blocked(user):
-        await msg.answer(
-            f"👋 Привет!\n\n⛔ Твой аккаунт заблокирован.\n\nОбратись к администратору: {_contact()}"
-        )
-    else:
-        await msg.answer("👋 Привет!\n\nВыбери что тебе нужно:", reply_markup=user_main_kb())
+    # Admins always get the user menu (they use the bot as a user too); /admin opens the panel.
+    if tg_id not in ADMIN_IDS:
+        user = await find_by_tg_id(tg_id)
+        if not user:
+            await msg.answer(
+                "👋 Привет!\n\n"
+                "❌ Твой аккаунт не найден в системе.\n\n"
+                f"Для подключения обратись к администратору: {_contact()}"
+            )
+            return
+        if is_blocked(user):
+            await msg.answer(
+                "👋 Привет!\n\n⛔ Твой аккаунт заблокирован.\n\n"
+                f"Обратись к администратору: {_contact()}"
+            )
+            return
+    await msg.answer("👋 Привет!\n\nВыбери что тебе нужно:", reply_markup=user_main_kb())
 
 
 @router.message(Command("admin"), IsAdmin())

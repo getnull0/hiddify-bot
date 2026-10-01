@@ -117,7 +117,7 @@ Colon-separated, parsed with `callback_arg` / `data_of`:
 
 ### UI language
 
-Bot-facing strings are Russian. `/start` is the only published command; for admins it opens the admin menu (`/admin` does the same, unlisted). Parse mode is HTML.
+Bot-facing strings are Russian. `/start` is the only published command and opens the user menu for everyone, admins included (they use the bot as users too); admins open the panel with the unlisted `/admin`. Parse mode is HTML.
 
 ### Logging
 

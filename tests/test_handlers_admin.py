@@ -14,9 +14,12 @@ def uuid_of(user: dict) -> str:
 
 
 class TestStartAndMenus:
-    async def test_admin_start_opens_admin_menu(self, bot: Harness):
+    async def test_admin_start_opens_the_user_menu(self, bot: Harness):
         await bot.text("/start", ADMIN_ID)
-        assert "Hiddify Admin" in bot.last_text
+        assert bot.last_buttons == ["my_account", "close"]
+
+    async def test_admin_command_shows_the_full_admin_menu(self, bot: Harness):
+        await bot.text("/admin", ADMIN_ID)
         assert {"users_list:0", "user_create", "user_search", "server_status"} <= set(
             bot.last_buttons
         )
