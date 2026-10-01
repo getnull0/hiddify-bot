@@ -24,16 +24,17 @@ Telegram-бот для управления [Hiddify](https://github.com/hiddify
 
 ### Требования
 
-- Python 3.12+
-- Hiddify Panel (протестировано на v11)
+- Python 3.12+ (или Docker)
+- Hiddify Panel (API сверен с исходниками v14.0.0b5; ранее бот работал на v11)
 - Telegram Bot Token (от [@BotFather](https://t.me/BotFather))
+- UUID и proxy path администратора панели (см. ниже, откуда их взять)
 
 ### Установка
 
 1. Клонируйте репозиторий:
 
 ```bash
-git clone https://github.com/VoidrixLab/hiddify-bot.git
+git clone https://github.com/getnull0/hiddify-bot.git
 cd hiddify-bot
 ```
 
@@ -43,7 +44,7 @@ cd hiddify-bot
 cp .env.example .env
 ```
 
-3. Запустите через Docker:
+3. Запустите через Docker (при старте бот проверяет доступ к панели и пишет подсказку в лог, если что-то не так):
 
 ```bash
 docker compose up -d --build
@@ -61,55 +62,60 @@ python bot.py
 | Переменная | Описание |
 |---|---|
 | `BOT_TOKEN` | Токен бота от @BotFather |
-| `HIDDIFY_URL` | URL Hiddify панели (без trailing slash) |
-| `HIDDIFY_PROXY_PATH` | Путь перед `/api/v2` |
-| `HIDDIFY_USER_PATH` | Путь для построения URL подписок пользователей |
-| `HIDDIFY_ADMIN_UUID` | Admin UUID панели (используется как API-ключ) |
-| `ADMIN_IDS` | Telegram user IDs через запятую |
-| `ADMIN_USERNAME` | Telegram username для поддержки (без @) |
-| `HIDDIFY_VERIFY_SSL` | `true` для production (Let's Encrypt), `false` для self-signed |
+| `ADMIN_IDS` | Telegram user IDs администраторов через запятую |
+| `HIDDIFY_URL` | URL панели с `https://`, без слеша в конце |
+| `HIDDIFY_PROXY_PATH` | **Админский** proxy path: первый сегмент админской ссылки `https://домен/<PROXY_PATH>/<ADMIN_UUID>/admin/` |
+| `HIDDIFY_ADMIN_UUID` | UUID администратора: второй сегмент той же ссылки (используется как API-ключ) |
+| `HIDDIFY_USER_PATH` | **Клиентский** proxy path: первый сегмент ссылки подписки любого пользователя `https://домен/<USER_PATH>/<uuid>/` |
+| `HIDDIFY_VERIFY_SSL` | `true` — проверять сертификат (Let's Encrypt), иначе без проверки (self-signed, sslip.io) |
+| `ADMIN_USERNAME` | Telegram username поддержки без `@` (необязательно) |
+| `QR_API_URL` | Свой сервис QR-кодов (необязательно) |
+
+Админский и клиентский proxy path в Hiddify разные. Если перепутать, панель ответит 403/404, и бот покажет подсказку.
 
 ## Разработка
 
 ### Установка dev-зависимостей
 
 ```bash
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt
 pre-commit install
 ```
 
-### Линтинг и форматирование
+### Все проверки одной командой
 
 ```bash
-ruff check .
-ruff format .
+make check
 ```
 
-### Тесты
-
-```bash
-pytest -v
-```
+Отдельно: `make lint`, `typecheck`, `deadcode`, `security`, `audit`, `comments`, `test`. Тесты не требуют ни `.env`, ни настоящей панели: в них поднимается фейковая панель Hiddify и фейковый Telegram, поэтому нажатия кнопок проверяются от обновления до ответа панели.
 
 ### CI
 
-GitHub Actions (`.github/workflows/ci.yml`) запускается на push и PR:
+GitHub Actions (`.github/workflows/ci.yml`) запускает параллельные джобы, итоговая `gate` падает, если упала любая:
 
-- **lint** — ruff check + format check
-- **test** — pytest
+- **lint** — ruff (расширенный набор правил)
+- **typecheck** — mypy `--strict`
+- **quality** — vulture (мёртвый код) и проверка комментариев (английский, не больше 2 строк)
+- **security** — bandit и pip-audit
+- **test** — pytest с порогом покрытия
 - **build** — сборка Docker-образа
+
+Зависимости зафиксированы с хешами (`requirements*.txt`); обновляйте через `make lock`.
 
 ## Архитектура
 
 ```
-bot.py             → точка входа: Bot + Dispatcher, маршрутизация
-handlers/          → aiogram Routers (common, users, server, account)
-services/          → бизнес-логика, обёртки над API
-api/hiddify.py     → HTTP-клиент Hiddify REST API (aiohttp)
+bot.py             → точка входа: create_dispatcher() и main()
+config.py          → Settings: валидация окружения
+api/client.py      → HiddifyClient: HTTP-клиент панели, ошибки, кэш пользователей
+handlers/          → aiogram Routers: common, account, server, users/ (пакет), errors
+services/          → бизнес-логика поверх клиента
 keyboards/         → InlineKeyboard билдеры + навигация
-formatters/        → pure functions: API dict → HTML string
-filters/admin.py   → IsAdmin filter
+formatters/        → pure functions: dict панели → HTML
 middlewares/       → ThrottleMiddleware (rate limiting)
+utils/             → esc, типизированный доступ к полям Telegram, валидация, статус пользователя
+tests/             → unit + end-to-end тесты с фейковой панелью и фейковым Telegram
 ```
 
 Подробности — в [AGENTS.md](AGENTS.md).

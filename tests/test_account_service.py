@@ -1,4 +1,5 @@
 """Tests for services.account_service pure functions."""
+
 from datetime import date, timedelta
 
 from services.account_service import _days_left, _expiry_date, _sub_url

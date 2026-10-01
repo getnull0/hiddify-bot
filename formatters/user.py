@@ -1,12 +1,24 @@
 from utils.html import esc as _esc
+from utils.types import JsonDict
+from utils.user_state import UserStatus, limit_gb, user_status
 
-
-_MODE_LABELS = {
+MODE_LABELS = {
     "no_reset": "без сброса",
     "monthly": "ежемесячно",
     "weekly": "еженедельно",
     "daily": "ежедневно",
 }
+
+
+_STATUS: dict[UserStatus, tuple[str, str]] = {
+    "blocked": ("⛔", "Заблокирован"),
+    "active": ("✅", "Активен"),
+    "inactive": ("🟡", "Лимит или срок исчерпан"),
+}
+
+
+def status_icon(user: JsonDict) -> str:
+    return _STATUS[user_status(user)][0]
 
 
 def _fmt_online(val: str | None) -> str:
@@ -16,33 +28,24 @@ def _fmt_online(val: str | None) -> str:
 
 
 def _fmt_date(val: str | None) -> str:
-    """ISO 2024-01-15 → 15.01.2024"""
+    """Convert ISO 2024-01-15 to 15.01.2024."""
     if not val:
         return "—"
     try:
         y, m, d = val[:10].split("-")
-        return f"{d}.{m}.{y}"
-    except Exception:
+    except ValueError:
         return _esc(val)
+    return f"{d}.{m}.{y}"
 
 
-def user_card(u: dict) -> str:
-    """Карточка пользователя для администратора."""
+def user_card(u: JsonDict) -> str:
+    """User card for the admin view."""
     used = u.get("current_usage_GB") or 0.0
-    limit = u.get("usage_limit_GB") or 0.0
+    limit = limit_gb(u)
     days = u.get("package_days") or 0
     mode = u.get("mode") or "no_reset"
-    active = u.get("is_active", False)
-    enabled = u.get("enable", False)
-
-    if limit == 0:
-        status = "⛔ Заблокирован"
-    elif active:
-        status = "✅ Активен"
-    elif enabled:
-        status = "🟡 Включён"
-    else:
-        status = "⛔ Отключён"
+    icon, label = _STATUS[user_status(u)]
+    status = f"{icon} {label}"
 
     pct = (used / limit * 100) if limit else 0
     filled = min(10, round(pct / 10))
@@ -55,7 +58,7 @@ def user_card(u: dict) -> str:
         f"{bar}  {pct:.0f}%",
         f"📊  {used:.2f} / {limit:.1f} GB",
         "",
-        f"📅  {days} дн.  ·  {_MODE_LABELS.get(mode, mode)}",
+        f"📅  {days} дн.  ·  {MODE_LABELS.get(mode, mode)}",
         f"🗓  Начало: {_fmt_date(u.get('start_date'))}",
         f"🕐  Онлайн: {_fmt_online(u.get('last_online'))}",
         f"🔗  Telegram: {u.get('telegram_id') or '—'}",
@@ -66,8 +69,8 @@ def user_card(u: dict) -> str:
     return "\n".join(lines)
 
 
-def account_card(data: dict) -> str:
-    """Карточка для самого пользователя."""
+def account_card(data: JsonDict) -> str:
+    """Card shown to the user themselves."""
     used = data["used"]
     total = data["total"]
     pct = (used / total * 100) if total else 0
@@ -82,7 +85,7 @@ def account_card(data: dict) -> str:
     else:
         days_text = f"<b>{days} дн.</b>"
 
-    mode = _MODE_LABELS.get(data.get("mode", ""), data.get("mode", ""))
+    mode = MODE_LABELS.get(data.get("mode", ""), data.get("mode", ""))
     expiry = data.get("expiry_date") or "—"
     last_online = _fmt_online(data.get("last_online"))
 

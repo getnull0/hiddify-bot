@@ -1,4 +1,5 @@
 """Tests for keyboards.nav — pure functions, no external deps."""
+
 from keyboards.nav import nav_row, pagination_row
 
 

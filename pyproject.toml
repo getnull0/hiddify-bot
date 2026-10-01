@@ -4,14 +4,6 @@ version = "1.0.0"
 description = "Telegram bot for managing a Hiddify VPN panel"
 requires-python = ">=3.12"
 
-[project.optional-dependencies]
-dev = [
-    "ruff==0.11.13",
-    "pytest==8.4.1",
-    "pytest-asyncio==1.0.0",
-    "pre-commit==4.2.0",
-]
-
 [tool.ruff]
 target-version = "py312"
 line-length = 100
@@ -26,10 +18,40 @@ select = [
     "UP",     # pyupgrade
     "SIM",    # flake8-simplify
     "RUF",    # ruff-specific
+    "C4",     # flake8-comprehensions
+    "C90",    # mccabe complexity
+    "PT",     # flake8-pytest-style
+    "PTH",    # use pathlib
+    "ASYNC",  # async pitfalls
+    "T20",    # no print()
+    "ERA",    # no commented-out code
+    "PERF",   # perflint
+    "RET",    # flake8-return
+    "TID",    # tidy imports
+    "LOG",    # logging misuse
+    "G",      # logging format
+    "PIE",    # flake8-pie
+    "S",      # bandit rules
+    "BLE",    # no blind except
+    "TRY",    # tryceratops
+    "PLR0911", # too many returns
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
 ]
 ignore = [
     "E501",   # line too long — ruff format handles it
+    "RUF001", # Cyrillic UI strings
+    "RUF002", # Cyrillic docstrings
+    "RUF003", # Cyrillic comments
+    "TRY003", # long exception messages are fine
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "PLR2004", "ASYNC109"]
+"scripts/*" = ["T201"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
 
 [tool.ruff.lint.isort]
 known-first-party = ["api", "config", "filters", "formatters", "handlers", "keyboards", "middlewares", "services", "utils"]
@@ -40,3 +62,29 @@ quote-style = "double"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+exclude = ["^tests/", "^\\.venv/"]
+
+[tool.vulture]
+paths = ["."]
+exclude = ["tests/", ".venv/", ".git/"]
+ignore_decorators = ["@router.*", "@dp.*"]
+min_confidence = 60
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", ".git"]
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "scripts/*", ".venv/*"]
+
+[tool.coverage.report]
+# Ratchet: raise this as handler tests are added, never lower it
+fail_under = 95
+exclude_also = ["if __name__ == .__main__.:"]
+show_missing = true
+skip_covered = true

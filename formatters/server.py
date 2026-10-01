@@ -1,8 +1,9 @@
 from utils.html import esc as _esc
+from utils.types import JsonDict
 
 
-def server_status(data: dict) -> str:
-    stats = data.get("stats", data)  # поддержка и вложенного и плоского
+def server_status(data: JsonDict) -> str:
+    stats = data.get("stats", data)  # supports both nested and flat payloads
     s = stats.get("system", {})
     top5 = stats.get("top5", {})
     hist = data.get("usage_history", {})
@@ -35,8 +36,8 @@ def server_status(data: dict) -> str:
         total = hist.get("total", {})
         today = hist.get("today", {})
         users = total.get("users", "—")
-        today_gb = int(today.get("usage", 0) or 0) / 1024 ** 3
-        total_gb = int(total.get("usage", 0) or 0) / 1024 ** 3
+        today_gb = int(today.get("usage", 0) or 0) / 1024**3
+        total_gb = int(total.get("usage", 0) or 0) / 1024**3
         online = total.get("online", "—")
         lines += [
             "",
@@ -54,7 +55,7 @@ def server_status(data: dict) -> str:
     return "\n".join(lines)
 
 
-def panel_info(data: dict) -> str:
+def panel_info(data: JsonDict) -> str:
     return (
         f"ℹ️ <b>Hiddify Panel</b>\n\n"
         f"Версия: <b>{_esc(data['version'])}</b>\n"
