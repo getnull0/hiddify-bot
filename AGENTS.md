@@ -24,8 +24,12 @@ docker compose up -d --build
 pip install -r requirements.txt
 
 # Dev install (includes ruff, pytest, pre-commit)
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt
 pre-commit install
+
+# Update locked deps (edit requirements*.in, then recompile on Python 3.12)
+pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in
+pip-compile --generate-hashes --strip-extras -o requirements-dev.txt requirements-dev.in
 
 # Lint
 ruff check .

@@ -74,7 +74,7 @@ python bot.py
 ### Установка dev-зависимостей
 
 ```bash
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt
 pre-commit install
 ```
 
