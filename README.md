@@ -128,7 +128,7 @@ utils/             → esc, типизированный доступ к пол�
 tests/             → unit + end-to-end тесты с фейковой панелью и фейковым Telegram
 ```
 
-Подробности — в [AGENTS.md](AGENTS.md).
+Подробности: [docs/architecture.md](docs/architecture.md) (устройство), [docs/hiddify-api.md](docs/hiddify-api.md) (что бот берёт от API панели), [AGENTS.md](AGENTS.md) (правила для AI-агентов).
 
 ## Лицензия
 
