@@ -118,6 +118,7 @@ class FakePanel:
         app.router.add_post(f"{prefix}/admin/log/", self._log)
         app.router.add_get(f"{prefix}/admin/me/", self._me)
         app.router.add_get(f"{prefix}/panel/info/", self._info)
+        app.router.add_route("*", "/{tail:.*}", self._unknown_path)
         self._server = TestServer(app)
         await self._server.start_server()
 
@@ -147,6 +148,10 @@ class FakePanel:
     def _user_or_404(self, request: web.Request) -> dict[str, Any] | None:
         user = self.users.get(request.match_info["uuid"])
         return None if user is None or user["deleted"] else user
+
+    async def _unknown_path(self, request: web.Request) -> web.Response:
+        """The real panel answers 400 'invalid request' for an unknown proxy path."""
+        return json_error(400, "invalid request")
 
     async def _list_users(self, request: web.Request) -> web.Response:
         users = [u for u in self.users.values() if not u["deleted"]]

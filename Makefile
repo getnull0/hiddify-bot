@@ -1,4 +1,4 @@
-.PHONY: install lock lint format typecheck deadcode security audit comments test check
+.PHONY: install lock lint format typecheck deadcode security audit comments test check smoke smoke-write
 
 PYTHON ?= python
 
@@ -37,3 +37,11 @@ test:
 
 # Run every gate that CI runs, locally
 check: lint typecheck deadcode security comments test
+
+# Check your real panel with the settings from .env (read-only)
+smoke:
+	$(PYTHON) -m scripts.smoke
+
+# Same, plus a create/block/extend/reset/delete cycle on a temporary user
+smoke-write:
+	$(PYTHON) -m scripts.smoke --write

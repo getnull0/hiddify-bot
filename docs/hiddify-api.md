@@ -6,7 +6,8 @@ Verified against the Hiddify-Panel v14.0.0b5 source. Re-check these when the pan
 
 - The panel decides the account type from the **proxy path in the URL**. Admin endpoints live under `/<admin_path>/api/v2/admin/...` and need the admin UUID in the `Hiddify-API-Key` header.
 - Per-user endpoints (`/user/me/`, `/user/short/`, ...) live under the **client** path and need the *user's own* UUID, so they cannot be used with the admin key. This is why the bot reads everything through admin endpoints and builds the subscription link itself: `{HIDDIFY_URL}/{HIDDIFY_USER_PATH}/{uuid}/`. (It was long mistaken for a v11 bug.)
-- Wrong key, wrong role or wrong path answer 403 or 404 with a JSON body `{"message": ..., "detail": ...}`.
+- Errors are JSON `{"message": ..., "detail": ...}`. A wrong key or role answers 403 `Unathorized`; a wrong proxy path answers **400 `invalid request`**.
+- A freshly initialised panel already contains one user named `default`.
 
 ## Endpoints used
 

@@ -57,6 +57,17 @@ pip install -r requirements.txt
 python bot.py
 ```
 
+### Проверка вашей панели
+
+После заполнения `.env` проверьте, что бот видит панель и все пути указаны верно:
+
+```bash
+make smoke          # только чтение: доступ, версия, пользователи, статус сервера, ссылка подписки
+make smoke-write    # плюс цикл на временном пользователе: создать, заблокировать, продлить, сбросить, удалить
+```
+
+Скрипт сам подскажет, какая переменная неверна (админский UUID, админский или клиентский proxy path).
+
 ### Конфигурация
 
 | Переменная | Описание |
@@ -128,7 +139,7 @@ utils/             → esc, типизированный доступ к пол�
 tests/             → unit + end-to-end тесты с фейковой панелью и фейковым Telegram
 ```
 
-Подробности: [docs/architecture.md](docs/architecture.md) (устройство), [docs/hiddify-api.md](docs/hiddify-api.md) (что бот берёт от API панели), [AGENTS.md](AGENTS.md) (правила для AI-агентов).
+Подробности: [docs/architecture.md](docs/architecture.md) (устройство), [docs/hiddify-api.md](docs/hiddify-api.md) (что бот берёт от API панели), [docs/real-panel-testing.md](docs/real-panel-testing.md) (запуск настоящей панели для проверки), [AGENTS.md](AGENTS.md) (правила для AI-агентов).
 
 ## Лицензия
 
