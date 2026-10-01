@@ -9,7 +9,7 @@ import pytest
 from api import close_client, get_client, set_client
 from api.client import API_ERRORS, HiddifyApiError, HiddifyClient, describe_api_error
 from tests.conftest import make_settings
-from tests.fakes.panel import ADMIN_UUID, FakePanel, started_ago
+from tests.fakes.panel import ADMIN_UUID, FakePanel, node_row, started_ago
 
 
 class TestUsersListAndCache:
@@ -255,3 +255,75 @@ class TestSession:
 
 def test_admin_uuid_constant_matches_fixture():
     assert make_settings("http://x").admin_uuid == ADMIN_UUID
+
+
+class TestUserScopeAndPanelExtras:
+    async def test_profile_uses_the_client_path_without_the_admin_key(
+        self, client: HiddifyClient, panel: FakePanel
+    ):
+        user = panel.add_user(mode="monthly", package_days=30, start_date=started_ago(10))
+        profile = await client.get_user_profile(user["uuid"])
+        assert profile["profile_reset_days"] == 20
+        assert panel.user_scope_keys == [None]
+
+    async def test_profile_reports_the_no_reset_sentinel(
+        self, client: HiddifyClient, panel: FakePanel
+    ):
+        user = panel.add_user(mode="no_reset")
+        assert (await client.get_user_profile(user["uuid"]))["profile_reset_days"] == 10_000
+
+    async def test_profile_for_an_unknown_user_is_an_error(self, client: HiddifyClient):
+        with pytest.raises(HiddifyApiError) as exc:
+            await client.get_user_profile("00000000-0000-0000-0000-000000000000")
+        assert exc.value.status == 302
+
+    async def test_telegram_proxies_when_enabled(self, client: HiddifyClient, panel: FakePanel):
+        panel.telegram_proxy = True
+        user = panel.add_user()
+        proxies = await client.get_telegram_proxies(user["uuid"])
+        assert [p["title"] for p in proxies] == ["vpn.example.com", "vpn2.example.com"]
+        assert proxies[0]["link"].startswith("tg://proxy?server=vpn.example.com&port=443&secret=ee")
+
+    async def test_telegram_proxies_disabled_is_a_404(
+        self, client: HiddifyClient, panel: FakePanel
+    ):
+        user = panel.add_user()
+        with pytest.raises(HiddifyApiError) as exc:
+            await client.get_telegram_proxies(user["uuid"])
+        assert exc.value.status == 404
+
+    async def test_telegram_proxies_must_be_a_list(self, client: HiddifyClient, panel: FakePanel):
+        user = panel.add_user()
+        panel.respond_next('{"not": "a list"}', content_type="application/json")
+        with pytest.raises(HiddifyApiError, match="формат"):
+            await client.get_telegram_proxies(user["uuid"])
+
+    async def test_dashboard(self, client: HiddifyClient):
+        data = await client.get_dashboard()
+        assert data["users"]["online"]["m5"] == 2
+        assert len(data["series"]) == 30
+
+    async def test_nodes_list_ping_and_sync(self, client: HiddifyClient, panel: FakePanel):
+        panel.nodes = [node_row(1), node_row(2, status="offline")]
+        assert [n["id"] for n in await client.list_nodes()] == [1, 2]
+        assert (await client.ping_node(1))["online"] is True
+        await client.sync_node(1)
+        assert panel.count("POST", "/admin/nodes/1/sync/") == 1
+
+    async def test_failed_sync_is_an_error(self, client: HiddifyClient, panel: FakePanel):
+        panel.node_sync_ok = False
+        with pytest.raises(HiddifyApiError) as exc:
+            await client.sync_node(1)
+        assert exc.value.status == 502
+
+    async def test_nodes_payload_must_contain_a_list(self, client: HiddifyClient, panel: FakePanel):
+        panel.respond_next('{"nodes": "oops"}', content_type="application/json")
+        with pytest.raises(HiddifyApiError, match="формат"):
+            await client.list_nodes()
+
+    async def test_user_note_can_be_set_but_not_cleared(
+        self, client: HiddifyClient, panel: FakePanel
+    ):
+        user = panel.add_user()
+        assert (await client.update_user(user["uuid"], comment="hello"))["comment"] == "hello"
+        assert (await client.update_user(user["uuid"], comment=""))["comment"] == "hello"

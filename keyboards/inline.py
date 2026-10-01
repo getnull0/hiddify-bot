@@ -20,6 +20,9 @@ def admin_main_kb() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="📊 Сервер", callback_data="server_status"),
     )
     kb.row(
+        InlineKeyboardButton(text="📈 Статистика", callback_data="stats"),
+    )
+    kb.row(
         InlineKeyboardButton(text="📋 Логи", callback_data="logs_menu"),
     )
     kb.row(
@@ -85,6 +88,7 @@ def user_actions_kb(uuid: str, blocked: bool, list_page: int = 0) -> InlineKeybo
         InlineKeyboardButton(text="🔁 Режим сброса", callback_data=f"user_set_mode:{uuid}"),
         InlineKeyboardButton(text="🔗 Telegram ID", callback_data=f"user_set_tgid:{uuid}"),
     )
+    kb.row(InlineKeyboardButton(text="💬 Заметка", callback_data=f"user_set_comment:{uuid}"))
     kb.row(
         InlineKeyboardButton(
             text="🗑 Удалить", callback_data=f"user_delete_confirm:{uuid}", style="danger"
@@ -151,13 +155,15 @@ def my_link_kb(back_cb: str = "my_account", home_cb: str = "user_menu") -> Inlin
     return kb.as_markup()
 
 
-def my_account_kb(home_cb: str = "menu") -> InlineKeyboardMarkup:
-    """Buttons under the own-account card (for both admins and users)."""
+def my_account_kb(home_cb: str = "menu", proxy: bool = False) -> InlineKeyboardMarkup:
+    """Buttons under the own-account card; the Telegram proxy one only if the panel offers it."""
     kb = InlineKeyboardBuilder()
     kb.row(
         InlineKeyboardButton(text="🔑 Ссылка", callback_data="my_link"),
         InlineKeyboardButton(text="📱 Приложения", callback_data="my_apps"),
     )
+    if proxy:
+        kb.row(InlineKeyboardButton(text="📡 Прокси для Telegram", callback_data="my_proxy"))
     kb.row(*nav_row(home_cb=home_cb))
     return kb.as_markup()
 
@@ -246,4 +252,40 @@ def apps_kb(back_cb: str = "my_account", home_cb: str = "user_menu") -> InlineKe
         ),
     )
     kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
+    return kb.as_markup()
+
+
+_MAX_PROXY_BUTTONS = 8
+_NAME_MAX = 18
+
+
+def proxy_kb(proxies: list[JsonDict], back_cb: str, home_cb: str) -> InlineKeyboardMarkup:
+    """One URL button per Telegram proxy link; tapping it offers to enable the proxy."""
+    kb = InlineKeyboardBuilder()
+    for proxy in proxies[:_MAX_PROXY_BUTTONS]:
+        title = str(proxy.get("title") or "proxy")[:_NAME_MAX]
+        kb.row(InlineKeyboardButton(text=f"📡 {title}", url=str(proxy["link"])))
+    kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
+    return kb.as_markup()
+
+
+def server_status_kb(node_count: int = 0) -> InlineKeyboardMarkup:
+    """Back/Home row, plus a Servers button when the panel has remote nodes."""
+    kb = InlineKeyboardBuilder()
+    if node_count:
+        kb.row(InlineKeyboardButton(text=f"🌐 Серверы ({node_count})", callback_data="nodes"))
+    kb.row(*nav_row(home_cb="menu"))
+    return kb.as_markup()
+
+
+def nodes_kb(nodes: list[JsonDict]) -> InlineKeyboardMarkup:
+    """Ping and sync buttons for every node."""
+    kb = InlineKeyboardBuilder()
+    for node in nodes:
+        name = str(node.get("name") or f"node-{node['id']}")[:_NAME_MAX]
+        kb.row(
+            InlineKeyboardButton(text=f"📶 {name}", callback_data=f"node_ping:{node['id']}"),
+            InlineKeyboardButton(text="🔄 Синхр.", callback_data=f"node_sync:{node['id']}"),
+        )
+    kb.row(*nav_row(back_cb="server_status", home_cb="menu"))
     return kb.as_markup()

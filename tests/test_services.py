@@ -5,7 +5,8 @@ import pytest
 import services.account_service as account_svc
 import services.server_service as server_svc
 import services.user_service as svc
-from tests.fakes.panel import FakePanel, started_ago
+from api.client import HiddifyApiError
+from tests.fakes.panel import FakePanel, node_row, started_ago
 
 
 class TestUserService:
@@ -119,3 +120,60 @@ class TestAccountService:
         assert data["days_left"] == 20
         assert data["expiry_date"] is not None
         assert data["last_online"] == "2026-01-02 03:04:05"
+
+
+class TestAccountExtras:
+    async def test_monthly_account_shows_days_to_reset(self, client, panel: FakePanel):
+        user = panel.add_user(mode="monthly", start_date=started_ago(10))
+        assert (await account_svc.get_account(user["uuid"]))["reset_days"] == 20
+
+    async def test_no_reset_account_has_no_reset_days(self, client, panel: FakePanel):
+        user = panel.add_user(mode="no_reset")
+        assert (await account_svc.get_account(user["uuid"]))["reset_days"] is None
+
+    async def test_telegram_proxy_flag_follows_the_panel(self, client, panel: FakePanel):
+        user = panel.add_user()
+        assert (await account_svc.get_account(user["uuid"]))["telegram_proxy"] is False
+        panel.telegram_proxy = True
+        assert (await account_svc.get_account(user["uuid"]))["telegram_proxy"] is True
+
+    async def test_older_panels_without_the_user_api_still_work(self, client, panel: FakePanel):
+        panel.user_api_available = False
+        user = panel.add_user(mode="monthly")
+        data = await account_svc.get_account(user["uuid"])
+        assert data["reset_days"] is None
+        assert data["telegram_proxy"] is False
+        assert data["name"] == user["name"]
+
+    async def test_proxies_are_empty_when_the_proxy_is_not_enabled(self, client, panel: FakePanel):
+        user = panel.add_user()
+        assert await account_svc.get_telegram_proxies(user["uuid"]) == []
+
+    async def test_proxies_other_errors_are_not_swallowed(self, client, panel: FakePanel):
+        user = panel.add_user()
+        panel.fail_next(500, "boom")
+        with pytest.raises(HiddifyApiError):
+            await account_svc.get_telegram_proxies(user["uuid"])
+
+    async def test_proxies_when_enabled(self, client, panel: FakePanel):
+        panel.telegram_proxy = True
+        user = panel.add_user()
+        assert len(await account_svc.get_telegram_proxies(user["uuid"])) == 2
+
+
+class TestStatsAndNodesServices:
+    async def test_stats(self, client):
+        assert (await server_svc.get_stats())["users"]["total"] == 12
+
+    async def test_nodes_are_listed(self, client, panel: FakePanel):
+        panel.nodes = [node_row(1)]
+        assert [n["id"] for n in await server_svc.get_nodes()] == [1]
+
+    async def test_nodes_degrade_to_empty_on_panel_errors(self, client, panel: FakePanel):
+        panel.fail_next(500, "no nodes api")
+        assert await server_svc.get_nodes() == []
+
+    async def test_ping_and_sync(self, client, panel: FakePanel):
+        assert (await server_svc.ping_node(1))["online"] is True
+        await server_svc.sync_node(1)
+        assert panel.count("POST", "/admin/nodes/1/sync/") == 1

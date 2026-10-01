@@ -17,3 +17,12 @@ def test_parse_int():
     assert parse_int("30") == 30
     assert parse_int("3.5") is None
     assert parse_int("") is None
+
+
+def test_parse_comment():
+    from utils.validation import parse_comment
+
+    assert parse_comment("a note") == "a note"
+    assert parse_comment("") is None
+    assert parse_comment("x" * 200) == "x" * 200
+    assert parse_comment("x" * 201) is None

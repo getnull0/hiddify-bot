@@ -36,6 +36,14 @@ def parse_days(raw: str) -> int | None:
     return value if value is not None and 1 <= value <= MAX_DAYS else None
 
 
+MAX_COMMENT_CHARS = 200
+
+
+def parse_comment(raw: str) -> str | None:
+    """A user note: 1 to 200 characters."""
+    return raw if 1 <= len(raw) <= MAX_COMMENT_CHARS else None
+
+
 def parse_telegram_id(raw: str) -> int | None:
     """Parse a Telegram user id; ids are positive integers."""
     value = parse_int(raw)
