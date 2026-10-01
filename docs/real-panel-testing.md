@@ -26,9 +26,9 @@ STDOUT_LOG_LEVEL=WARNING
 `create_app_wsgi()` picks CLI or web mode from `sys.argv`, so call `create_app(app_mode="web")` yourself and run the Flask app. Creating the app initialises the schema and a super admin. Read the credentials in an app context:
 
 ```python
-AdminUser.get_super_admin_uuid()          # HIDDIFY_ADMIN_UUID
-hconfig(ConfigEnum.proxy_path_admin)      # HIDDIFY_PROXY_PATH
-hconfig(ConfigEnum.proxy_path_client)     # HIDDIFY_USER_PATH
+AdminUser.get_super_admin_uuid()  # HIDDIFY_ADMIN_UUID
+hconfig(ConfigEnum.proxy_path_admin)  # HIDDIFY_PROXY_PATH
+hconfig(ConfigEnum.proxy_path_client)  # HIDDIFY_USER_PATH
 ```
 
 Then run `make smoke-write` with `HIDDIFY_URL=http://127.0.0.1:PORT` and those three values.
