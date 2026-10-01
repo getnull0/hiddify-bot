@@ -27,7 +27,7 @@ def _contact() -> str:
 async def start(msg: Message, state: FSMContext) -> None:
     await state.clear()
     tg_id = user_id_of(msg)
-    # Admins always get the user menu (they use the bot as a user too); /admin opens the panel.
+    # Admins get the user menu too (they use the bot as users) plus a button to the panel.
     if tg_id not in ADMIN_IDS:
         user = await find_by_tg_id(tg_id)
         if not user:
@@ -43,7 +43,9 @@ async def start(msg: Message, state: FSMContext) -> None:
                 f"Обратись к администратору: {_contact()}"
             )
             return
-    await msg.answer("👋 Привет!\n\nВыбери что тебе нужно:", reply_markup=user_main_kb())
+    await msg.answer(
+        "👋 Привет!\n\nВыбери что тебе нужно:", reply_markup=user_main_kb(tg_id in ADMIN_IDS)
+    )
 
 
 @router.message(Command("admin"), IsAdmin())
@@ -70,7 +72,9 @@ async def menu_admin(cb: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(F.data == "user_menu")
 async def menu_user(cb: CallbackQuery) -> None:
     await cb.answer()
-    await message_of(cb).edit_text("Выбери что тебе нужно:", reply_markup=user_main_kb())
+    await message_of(cb).edit_text(
+        "Выбери что тебе нужно:", reply_markup=user_main_kb(user_id_of(cb) in ADMIN_IDS)
+    )
 
 
 @router.callback_query(F.data == "noop")

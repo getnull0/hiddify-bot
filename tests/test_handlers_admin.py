@@ -14,9 +14,14 @@ def uuid_of(user: dict) -> str:
 
 
 class TestStartAndMenus:
-    async def test_admin_start_opens_the_user_menu(self, bot: Harness):
+    async def test_admin_start_opens_the_user_menu_with_a_panel_button(self, bot: Harness):
         await bot.text("/start", ADMIN_ID)
-        assert bot.last_buttons == ["my_account", "close"]
+        assert bot.last_buttons == ["my_account", "menu", "close"]
+
+    async def test_panel_button_opens_the_admin_menu(self, bot: Harness):
+        await bot.text("/start", ADMIN_ID)
+        await bot.press("menu", ADMIN_ID)
+        assert {"users_list:0", "user_create"} <= set(bot.last_buttons)
 
     async def test_admin_command_shows_the_full_admin_menu(self, bot: Harness):
         await bot.text("/admin", ADMIN_ID)
@@ -77,7 +82,14 @@ class TestStartAndMenus:
 
     async def test_user_menu_button(self, bot: Harness):
         await bot.press("user_menu", ADMIN_ID)
-        assert bot.last_buttons == ["my_account", "close"]
+        assert bot.last_buttons == ["my_account", "menu", "close"]
+
+    async def test_regular_members_never_see_the_panel_button(self, bot: Harness, panel: FakePanel):
+        panel.add_user(telegram_id=MEMBER_ID)
+        await bot.text("/start", MEMBER_ID)
+        assert "menu" not in bot.last_buttons
+        await bot.press("user_menu", MEMBER_ID)
+        assert "menu" not in bot.last_buttons
 
 
 class TestListAndCard:

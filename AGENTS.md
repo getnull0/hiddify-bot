@@ -117,7 +117,7 @@ Colon-separated, parsed with `callback_arg` / `data_of`:
 
 ### UI language
 
-Bot-facing strings are Russian. `/start` is the only published command and opens the user menu for everyone, admins included (they use the bot as users too); admins open the panel with the unlisted `/admin`. Parse mode is HTML.
+Bot-facing strings are Russian. `/start` is the only published command and opens the user menu for everyone, admins included (they use the bot as users too); admins get an extra "Админ-панель" button in that menu (callback `menu`) and can also use the unlisted `/admin`. Parse mode is HTML.
 
 ### Logging
 
@@ -149,7 +149,7 @@ CI (`.github/workflows/ci.yml`) runs these jobs in parallel; the final `gate` jo
 Rules worth remembering:
 - Comments and docstrings: English, ASCII letters only (symbols and emoji are fine), max 2 lines per block. Bot-facing strings stay Russian; they are not comments.
 - Fix a vulture finding by using or deleting the code. `set_client` is a deliberate test seam listed in `api.__all__`.
-- Dependencies: edit `requirements.in` / `requirements-dev.in`, then `make lock`. Never edit the `.txt` lock files by hand.
+- Dependencies: edit `requirements.in` / `requirements-dev.in`, then `make lock`. Never edit the `.txt` lock files by hand. The runtime lock carries hashes (it goes into the image); the dev lock does not (tools only, kept small) and is constrained to the runtime versions.
 - Pre-commit runs ruff, mypy, vulture and the comment gate locally.
 
 ## Docker

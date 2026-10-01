@@ -27,8 +27,12 @@ class TestUserMainKb:
     def test_has_account_and_close(self):
         kb = user_main_kb()
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-        assert "my_account" in callbacks
-        assert "close" in callbacks
+        assert callbacks == ["my_account", "close"]
+
+    def test_admin_gets_a_panel_button(self):
+        kb = user_main_kb(is_admin=True)
+        callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+        assert callbacks == ["my_account", "menu", "close"]
 
 
 class TestUserActionsKb:

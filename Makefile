@@ -3,11 +3,11 @@
 PYTHON ?= python
 
 install:
-	$(PYTHON) -m pip install --require-hashes -r requirements-dev.txt
+	$(PYTHON) -m pip install -r requirements-dev.txt
 
 lock:
 	pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in
-	pip-compile --generate-hashes --strip-extras --allow-unsafe -o requirements-dev.txt requirements-dev.in
+	pip-compile --strip-extras --allow-unsafe -o requirements-dev.txt requirements-dev.in
 
 lint:
 	ruff check .
