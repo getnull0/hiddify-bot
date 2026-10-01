@@ -19,6 +19,7 @@ logs/
 *.db
 # --- Security (CRITICAL) ---
 .env.*
+!.env.example
 *.key
 *.pem
 *.p12

@@ -33,25 +33,25 @@ class TestUserMainKb:
 
 class TestUserActionsKb:
     def test_blocked_user_shows_unblock(self):
-        kb = user_actions_kb("uuid-123", limit_gb=0)
+        kb = user_actions_kb("uuid-123", blocked=True)
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
         assert "user_unblock:uuid-123" in callbacks
         assert "user_block:uuid-123" not in callbacks
 
     def test_active_user_shows_block(self):
-        kb = user_actions_kb("uuid-123", limit_gb=50)
+        kb = user_actions_kb("uuid-123", blocked=False)
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
         assert "user_block:uuid-123" in callbacks
         assert "user_unblock:uuid-123" not in callbacks
 
     def test_has_extend_buttons(self):
-        kb = user_actions_kb("uuid-123", limit_gb=50)
+        kb = user_actions_kb("uuid-123", blocked=False)
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
         assert "user_extend:uuid-123:30" in callbacks
         assert "user_extend:uuid-123:90" in callbacks
 
     def test_back_button_page_preserved(self):
-        kb = user_actions_kb("uuid-123", limit_gb=50, list_page=3)
+        kb = user_actions_kb("uuid-123", blocked=False, list_page=3)
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
         assert "users_list:3" in callbacks
         assert "users_list:0" not in callbacks

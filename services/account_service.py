@@ -1,8 +1,8 @@
-"""Personal account built from admin endpoints (user/* endpoints are broken in v11)."""
+"""Personal account built from admin endpoints (no per-user API key needed)."""
 
 from datetime import date, datetime, timedelta
 
-import api.hiddify as api
+from api import get_client
 from config import HIDDIFY_URL, HIDDIFY_USER_PATH
 from utils.types import JsonDict
 
@@ -34,7 +34,7 @@ def _expiry_date(start_date_str: str | None, package_days: int) -> str | None:
 
 async def get_account(user_uuid: str) -> JsonDict:
     """Return account data from admin/user/{uuid}/ and build the subscription URL locally."""
-    user = await api.get_user(user_uuid)
+    user = await get_client().get_user(user_uuid)
     package_days = user.get("package_days") or 0
     start_date = user.get("start_date")
     last_online = user.get("last_online") or ""

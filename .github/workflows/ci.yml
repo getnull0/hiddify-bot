@@ -13,14 +13,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BOT_TOKEN: test
-  HIDDIFY_URL: http://test
-  HIDDIFY_PROXY_PATH: test
-  HIDDIFY_USER_PATH: test
-  HIDDIFY_ADMIN_UUID: test
-  ADMIN_IDS: "123"
-
 jobs:
   lint:
     name: lint

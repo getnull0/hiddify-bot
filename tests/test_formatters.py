@@ -54,7 +54,18 @@ class TestUserCard:
             "enable": False,
         }
         result = user_card(u)
-        assert "⛔ Отключён" in result
+        assert "⛔ Заблокирован" in result
+
+    def test_enabled_but_exhausted_user(self):
+        u = {
+            "name": "Over",
+            "uuid": "xyz",
+            "current_usage_GB": 60,
+            "usage_limit_GB": 50,
+            "enable": True,
+            "is_active": False,
+        }
+        assert "🟡 Лимит или срок исчерпан" in user_card(u)
 
     def test_html_escaping(self):
         u = {
@@ -180,3 +191,13 @@ class TestAccountCard:
         }
         result = account_card(data)
         assert "0%" in result
+
+
+class TestDateFormatting:
+    def test_malformed_start_date_is_shown_escaped(self):
+        card = user_card({"name": "X", "uuid": "u", "start_date": "<soon>"})
+        assert "Начало: &lt;soon&gt;" in card
+
+    def test_iso_start_date_is_localised(self):
+        card = user_card({"name": "X", "uuid": "u", "start_date": "2024-01-15"})
+        assert "Начало: 15.01.2024" in card

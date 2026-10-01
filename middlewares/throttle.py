@@ -22,7 +22,10 @@ class ThrottleMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: JsonDict,
     ) -> Any:
-        user_id = data["event_from_user"].id
+        user = data.get("event_from_user")
+        if user is None:
+            return await handler(event, data)
+        user_id = user.id
         now = monotonic()
         if now - self._last.get(user_id, 0) < self.rate:
             if isinstance(event, CallbackQuery):

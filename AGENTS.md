@@ -2,10 +2,8 @@
 
 Telegram bot (aiogram 3.x) for managing a self-hosted [Hiddify](https://github.com/hiddify/Hiddify-Panel) VPN panel. Built for the home / small-group case: you run your own VPN server and hand out access to family and friends, all from Telegram. Two roles in one bot:
 
-- **Admin** — user management (create, block/unblock, extend, set traffic and day limits, reset-mode), server monitoring, and panel logs.
-- **End user** — a self-service "my account" view: remaining traffic and days, subscription link, QR code, and client-app download links.
-
-Open-source; originally built by the author for personal use and published as a portfolio project.
+- **Admin**: user management (create, block/unblock, extend, limits, reset mode), server monitoring, panel logs.
+- **End user**: self-service "my account": remaining traffic and days, subscription link, QR code, client-app links.
 
 ## Owner preferences
 
@@ -14,193 +12,155 @@ Open-source; originally built by the author for personal use and published as a 
 ## Commands
 
 ```bash
-# Run locally (requires .env — see .env.example)
-python bot.py
+python bot.py                    # run locally (needs .env, see .env.example)
+docker compose up -d --build     # production path
+pip install -r requirements-dev.txt && pre-commit install
 
-# Docker (production path)
-docker compose up -d --build
-
-# Install deps
-pip install -r requirements.txt
-
-# Dev install (includes ruff, pytest, pre-commit)
-pip install -r requirements-dev.txt
-pre-commit install
-
-# Update locked deps (edit requirements*.in, then recompile on Python 3.12)
-pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in
-pip-compile --generate-hashes --strip-extras --allow-unsafe -o requirements-dev.txt requirements-dev.in
-
-# Run every CI gate locally (lint, types, dead code, security, comments, tests)
-make check
+make check                       # every CI gate locally
+make lock                        # recompile requirements*.txt after editing the *.in files
 ```
 
-Individual gates: `make lint | typecheck | deadcode | security | audit | comments | test`.
+Individual gates: `make lint | typecheck | deadcode | security | audit | comments | test`. Python 3.12.
 
-Python 3.12. CI runs on push/PR via `.github/workflows/ci.yml` (lint + test + Docker build).
+## Environment
 
-## Required Environment
+All in `.env` (loaded by `config.py`, validated into a frozen `Settings` dataclass; a bad value exits with a readable message). `.env.example` documents each variable and is covered by a test.
 
-All in `.env` (loaded by `config.py` via python-dotenv). See `.env.example` for a template.
-
-- `BOT_TOKEN` — Telegram bot token
-- `HIDDIFY_URL` — base URL of the Hiddify panel (trailing slash stripped)
-- `HIDDIFY_PROXY_PATH` — path segment before `/api/v2` (e.g. the proxy prefix)
-- `HIDDIFY_USER_PATH` — path segment used to build per-user subscription URLs
-- `HIDDIFY_ADMIN_UUID` — admin API key (sent as `Hiddify-API-Key` header)
-- `ADMIN_IDS` — comma-separated Telegram user IDs allowed into the admin panel
-- `ADMIN_USERNAME` — Telegram username for support contact (without @, optional)
-- `HIDDIFY_VERIFY_SSL` — `"true"` to verify certs; absent/anything else disables SSL verification (default, for self-signed / sslip.io setups)
-- `QR_API_URL` — QR-code image API endpoint (optional; default `https://api.qrserver.com/v1/create-qr-code/`). Override to self-host QR generation instead of using the public service.
-
-`config.py` validates required vars at import time — missing vars raise `SystemExit` with a clear message listing which ones are missing.
+- `BOT_TOKEN`: Telegram bot token.
+- `ADMIN_IDS`: comma-separated Telegram ids allowed into the admin panel.
+- `HIDDIFY_URL`: panel base URL (must include http/https; trailing slash stripped).
+- `HIDDIFY_PROXY_PATH`: the **admin** proxy path (first segment of the admin link).
+- `HIDDIFY_ADMIN_UUID`: admin UUID, sent as the `Hiddify-API-Key` header.
+- `HIDDIFY_USER_PATH`: the **client** proxy path, used to build subscription links.
+- `HIDDIFY_VERIFY_SSL`: `true` verifies TLS; anything else skips verification (self-signed / sslip.io).
+- `ADMIN_USERNAME` (optional): support contact shown to unknown users.
+- `QR_API_URL` (optional): QR image service; override to self-host.
 
 ## Architecture
 
-### Layering
-
 ```
-bot.py            → entrypoint: Bot + Dispatcher, router registration, error handler, throttle middleware
-handlers/         → aiogram Routers, one per domain (common, users, server, account)
-  ↳ FSM states, callback routing, message handling
-services/         → business logic, thin wrappers over the API layer
-api/hiddify.py    → HTTP client for Hiddify REST API (one shared aiohttp.ClientSession)
-keyboards/        → InlineKeyboard builders + shared nav/pagination helpers in nav.py
-formatters/       → pure functions turning API dicts into HTML strings (with escaping)
-filters/admin.py  → IsAdmin filter (checks event.from_user.id against ADMIN_IDS)
-middlewares/      → ThrottleMiddleware (rate limiting per user)
-utils/            → html.py esc() HTML-escape helper; telegram.py typed accessors for optional event fields
-                    (message_of, user_id_of, callback_arg, data_of, text_of); validation.py number parsers;
-                    types.py JsonDict alias
-scripts/          → check_comments.py: CI gate for comment language and length
-tests/            → pytest tests (formatters, keyboards, nav, account_service, server formatters)
+bot.py            entrypoint: create_dispatcher() (middleware + routers) and main() (polling)
+config.py         Settings.from_env(): validation; module-level aliases for call sites
+api/client.py     HiddifyClient: one aiohttp session, errors, users cache, every panel call
+api/__init__.py   get_client() / set_client() / close_client(): the process-wide client
+services/         business logic over the client (user, account, server)
+handlers/         aiogram routers: common, account, server, users/ (package), errors
+  users/          browse.py (list, card, search, link/qr/apps), actions.py (one-tap),
+                  wizards.py (create/edit/tg id/unblock), views.py (card rendering), states.py
+keyboards/        inline keyboard builders; nav.py has the shared Back/Home/Close and pagination rows
+formatters/       pure functions turning panel dicts into HTML; texts.py holds shared messages
+filters/admin.py  IsAdmin
+middlewares/      ThrottleMiddleware (per-user rate limit)
+utils/            html (esc, esc_tail), telegram (typed event accessors), validation,
+                  user_state (blocked/active classification), qr, types (JsonDict)
+scripts/          check_comments.py: CI gate for comment language and length
+tests/            fakes/ (fake Hiddify panel + fake Telegram), unit and end-to-end tests
 ```
 
-Control flow: Telegram update → ThrottleMiddleware → Router → IsAdmin filter (where applicable) → handler → service → `api/hiddify.py` → Hiddify panel REST API. Formatters render the response HTML; keyboards attach navigation.
+Control flow: Telegram update -> ThrottleMiddleware -> router (IsAdmin where needed) -> handler -> service -> `HiddifyClient` -> panel. Errors anywhere land in `handlers/errors.py`.
 
-### Routers (registered in `bot.py` in this order)
+### Panel API facts (verified against Hiddify-Panel v14.0.0b5 source)
 
-- `common` — `/start`, `/admin`, close/menu/noop callbacks. Both admin and regular users.
-- `users` — admin-only user CRUD, search, multi-step create wizard. Filter applied at router level: `router.message.filter(IsAdmin())` / `router.callback_query.filter(IsAdmin())`.
-- `server` — admin-only server status, logs, update usage, panel info.
-- `account` — "my account" for both admins and end users. No router-level filter; admin-only callbacks use per-handler `IsAdmin()` filter.
-
-### The Hiddify v11 workaround (critical)
-
-Per-user `/user/*` endpoints (`me`, `short`, `all-configs`, `apps`) return 400 due to a bug in Hiddify v11 auth middleware. Everything is done through admin endpoints instead:
-
-- `services/account_service.py` builds the subscription URL manually from `HIDDIFY_URL` + `HIDDIFY_USER_PATH` + user UUID rather than fetching it from a user-scoped endpoint.
-- `find_user_by_telegram_id` scans the full admin user list client-side.
-
-Do not switch to `/user/*` endpoints without confirming the Hiddify bug is fixed.
+- The panel decides the account type from the **proxy path in the URL**. Admin endpoints (`/<admin_path>/api/v2/admin/...`) need the admin UUID. The per-user endpoints (`/user/me/` etc.) live under the *client* path and need the *user's own* UUID, so they cannot be used with the admin key. That is why the bot reads everything via admin endpoints and builds the subscription link itself: `{HIDDIFY_URL}/{HIDDIFY_USER_PATH}/{uuid}/`.
+- `GET /admin/user/` answers **404 "You have no user"** for an empty list. `HiddifyClient._fetch_users` turns that into `[]` after confirming credentials via `/admin/me/`.
+- Errors are JSON `{"message": ..., "detail": ...}`; wrong key, wrong role or wrong path give 403/404. `HiddifyApiError.message` carries the panel's message.
+- `is_active` is `enable and usage_limit >= usage and remaining_days >= 0`. **A zero limit does not block a user who has used nothing**, so blocking uses `enable=False` (the panel drops the client from the proxy cores immediately).
+- `telegram_id` can be set but not cleared through the API (the panel ignores falsy values).
+- `usage_limit_GB` is capped by the panel at 1,000,000. `start_date` stays `null` until the first connection.
+- Dates: `start_date` is `YYYY-MM-DD`; `last_online` is `YYYY-MM-DD HH:MM:SS`, `0001-...` meaning never.
+- `update_user_usage` and `log` need the super admin; `log` takes a form POST with `file` and returns an HTML page (with `<style>`), which `server_service` strips.
 
 ### Users cache
 
-`api/hiddify.py` keeps a module-level `_users_cache` with a 30-second TTL (`CACHE_TTL`). **Every function that mutates a user (`create_user`, `update_user`, `delete_user`, `reset_user_traffic`, `extend_user`) must set `_users_cache = None` to invalidate it.** Forgetting this leaves stale list views for up to 30s.
+`HiddifyClient` caches the users list for 30 s (`CACHE_TTL`). `_request` invalidates it after **every** successful non-GET call under `/admin/user`, so new mutation methods get correct behavior for free. Do not clear the cache by hand.
 
-### Blocking vs. disabling
+### Blocking
 
-"Block user" sets `usage_limit_GB=0` — it does **not** touch the `enable` flag. This is intentional: it preserves protocol/config assignments while cutting off traffic. Unblock = set a positive limit again. See `services/user_service.py` `block()` / `unblock()`.
+Block = `enable=False`; unblock = `enable=True` (one tap). Users blocked by older bot versions (limit 0, still enabled) are recognised by `utils/user_state.is_blocked`; unblocking them asks for a new limit first.
 
-### aiohttp session lifecycle
+### Telegram event access
 
-One `aiohttp.ClientSession` is created lazily in `api/hiddify.py` (via `async _get_session()` with a lock to prevent double-init) and reused for the process. All requests have a 30s total / 15s connect timeout (`_TIMEOUT`). `close_session()` is called in the `finally` block of `bot.py`'s `main()`. The SSL context is built once at import time based on `HIDDIFY_VERIFY_SSL`.
+Never touch `cb.message`, `cb.data`, `msg.text` or `from_user` directly: use `utils/telegram` (`message_of`, `callback_arg`, `data_of`, `text_of`, `user_id_of`). They satisfy mypy strict and make non-text messages in a wizard step harmless (`text_of` returns `""`).
+
+### Errors
+
+Handlers do not catch API errors. `handlers/errors.py` shows `HiddifyApiError` / aiohttp / timeout failures as an alert (buttons) or message (text) and keeps FSM state, so the admin can retry. "message is not modified" is ignored; anything else is logged and answered with a generic message. Callback handlers call `cb.answer()` *after* the work succeeds so a failure can still use the alert.
 
 ### Pagination position preservation
 
-When a user navigates `users_list:{page} → user:{uuid} → action → back`, the page number is stored in FSM state (`list_page` key) and passed through `user_actions_kb(uuid, limit, list_page=N)` so the Back button returns to the correct page, not page 0. When adding new handlers that show `user_actions_kb`, read `list_page` from `state.get_data()` and pass it through.
+`users_list:{page}` stores `list_page` in FSM data; `views.edit_card` / `reply_card` pass it to `user_actions_kb` so Back returns to the right page.
 
 ### HTML escaping
 
-`utils/html.py` provides `esc()` — it wraps `aiogram.utils.text_decorations.html_decoration.quote`, stringifies its input, and returns `""` for falsy values. Formatters import it as `_esc`; handlers import it as `esc`. Always run any value that comes from the API or user input (name, comment, uuid, expiry_date, log content, error text, subscription URL) through it before inserting it into an HTML message.
+`utils/html.esc` (aliased `_esc` in formatters) must wrap every API- or user-supplied value put into an HTML message. Use `esc_tail` for text that must fit Telegram's 4096-character limit.
 
 ## Conventions
 
-### Callback data format
+### Callback data
 
-Colon-separated prefixes, parsed by `cb.data.split(":")` or `.startswith(...)`:
+Colon-separated, parsed with `callback_arg` / `data_of`:
 
-- `user:{uuid}` — user detail card
-- `users_list:{page}` — paginated list (0-indexed)
-- `user_block:{uuid}`, `user_unblock:{uuid}`, `user_reset:{uuid}`
-- `user_extend:{uuid}:{days}` — carries an integer arg
-- `user_set_limit:{uuid}`, `user_set_days:{uuid}`, `user_set_mode:{uuid}`, `user_set_tgid:{uuid}`
-- `user_mode:{uuid}:{mode}` — mode is `monthly|weekly|daily|no_reset`
-- `user_delete_confirm:{uuid}`, `user_delete:{uuid}` — note the delete-do handler uses `F.data.regexp(r"^user_delete:[^_]")` to avoid matching `user_delete_confirm:`
-- `fsm_cancel:{back_cb}`, `fsm_back` — FSM navigation
-- `logs:{filename}` — filename is passed verbatim
-- `close`, `menu`, `user_menu`, `noop`, `server_status`, `logs_menu`, etc. — fixed strings
+- `user:{uuid}`, `users_list:{page}`, `user_block:{uuid}`, `user_unblock:{uuid}`, `user_reset:{uuid}`
+- `user_extend:{uuid}:{days}`, `user_mode:{uuid}:{mode}` (`no_reset|monthly|weekly|daily`)
+- `user_set_limit|user_set_days|user_set_mode|user_set_tgid:{uuid}`
+- `user_delete_confirm:{uuid}`, `user_delete:{uuid}` (the delete handler uses `F.data.regexp(r"^user_delete:[^_]")`)
+- `fsm_cancel:{back_cb}`, `fsm_back`, `logs:{filename}`
+- fixed: `close`, `menu`, `user_menu`, `noop`, `server_status`, `logs_menu`, `update_usage`, `panel_info`, `my_account`, `my_link`, `my_qr`, `my_apps`, `admin_my_account`, `user_create`, `user_search`
 
-### Navigation keyboards
+### Keyboards
 
-`keyboards/nav.py` provides `nav_row(back_cb, home_cb)` and `pagination_row(...)`. Most keyboards end with `kb.row(*nav_row(...))` so every screen has consistent Back / Home / Close buttons. Admin home callback is `menu`; regular-user home is `user_menu`. When adding a keyboard, follow this pattern.
+`keyboards/nav.py` provides `nav_row(back_cb, home_cb)` and `pagination_row`. End every screen with `kb.row(*nav_row(...))`. Admin home is `menu`, user home is `user_menu`. Photo messages use `photo_nav_kb`.
 
-Photo messages (QR codes) use `photo_nav_kb(back_cb, home_cb)` for navigation.
+### Wizards
 
-### FSM wizards
-
-Multi-step input uses `aiogram.fsm.state.StatesGroup`. Each state stores `uuid`, `field`, `back_cb`, and `list_page` in state data so the cancel button can return to the right screen and page. `fsm_nav_kb(back_cb, has_prev)` renders `[◀️ Назад] [❌ Отмена]`; `fsm_cancel_kb(back_cb)` for single-step wizards. The `.` input means "skip / use default" in create-user wizard.
+`handlers/users/wizards.py`. Each state stores `uuid`, `field`, `back_cb` and `list_page` where relevant. Input is parsed by `utils/validation` (finite numbers only, panel limits enforced). `.` skips an optional step in the create wizard.
 
 ### UI language
 
-All bot-facing strings (commands, buttons, messages, error text) are in Russian. Only one command is published via `bot.set_my_commands` in `bot.py`: `/start`. `/admin` is an unlisted admin-only command (handled in `handlers/common.py` behind `IsAdmin()`), deliberately kept out of the Telegram command menu. Parse mode is `HTML` (`ParseMode.HTML`).
+Bot-facing strings are Russian. `/start` is the only published command; for admins it opens the admin menu (`/admin` does the same, unlisted). Parse mode is HTML.
 
-### Error handling
+### Logging
 
-Global error handler in `bot.py` (`@dp.errors()`) logs the exception and answers the user with a generic "server error" message. API call failures inside handlers are caught and surfaced as `❌ Ошибка API: {e}`. The `close` callback handler catches `TelegramBadRequest` silently (message may already be deleted).
-
-### Logs
-
-Logging is set to `WARNING` globally except the bot's own logger (`bot`), which is `INFO`. `skip_updates=True` on polling means missed updates during downtime are not processed.
+Root level WARNING; the `bot` and `handlers` loggers are INFO. Polling uses `skip_updates=True`.
 
 ## Testing
 
-Tests are in `tests/` and use pytest with `pytest-asyncio` (auto mode). Run with `make test`. Tests cover:
+`make test` (pytest, asyncio auto mode). `tests/__init__.py` pins the environment, so tests never depend on a developer's shell or `.env`.
 
-- `test_formatters.py` — `user_card`, `account_card` (including HTML escaping, missing fields, edge cases)
-- `test_keyboards.py` — `nav_row`, `pagination_row`
-- `test_inline_keyboards.py` — keyboard builders (`admin_main_kb`, `user_actions_kb`, `users_list_kb`, `photo_nav_kb`)
-- `test_account_service.py` — `_sub_url`, `_days_left`, `_expiry_date` (date math, expiry, invalid-date handling)
-- `test_server_formatters.py` — `server_status`, `panel_info` (nested/flat data, usage history, top-5, HTML escaping, zero-division guards)
-- `test_telegram_utils.py`, `test_validation.py` — typed event accessors and number parsing (NaN/inf rejected)
-- `test_check_comments.py` — the comment gate itself
-
-Tests require env vars (config.py validates at import); `make test` sets dummy values. Without make: `BOT_TOKEN=test HIDDIFY_URL=http://test HIDDIFY_PROXY_PATH=test HIDDIFY_USER_PATH=test HIDDIFY_ADMIN_UUID=test ADMIN_IDS=123 pytest -v`
+- `tests/fakes/panel.py`: in-process aiohttp fake of the Hiddify v14 admin API with the real semantics (404 on empty list, `is_active` rule, JSON errors, 403 on a wrong key). Extend it when the real API behavior is learned.
+- `tests/fakes/telegram.py`: `FakeSession` records every Bot API call; `Harness.text()` / `.press()` feed real updates through the real dispatcher, so a test exercises handler -> service -> client -> fake panel.
+- Fixtures (`conftest.py`): `panel`, `client`, `bot` (the harness); the dispatcher is session-scoped because routers attach to one dispatcher only.
+- A test that expects a handler crash must clear `bot.unexpected`; any other unexpected error fails the test at teardown.
+- Search matches uuid fragments, so tests needing exact matches use fixed uuids.
 
 ## Quality gates
 
-CI (`.github/workflows/ci.yml`) runs these jobs in parallel; the final `gate` job fails if any of them fails and is the single check to require in branch protection.
+CI (`.github/workflows/ci.yml`) runs these jobs in parallel; the final `gate` job fails if any fails and is the single check to require in branch protection.
 
-| Job | Tool | What it enforces |
-|-----|------|------------------|
+| Job | Tool | Enforces |
+|-----|------|----------|
 | lint | ruff | style, imports, bugbear, bandit rules (`S`), complexity, no `print`, no commented-out code, no blind `except` |
-| typecheck | mypy `--strict` | full type coverage; use `utils/telegram.py` helpers instead of `cb.message` / `msg.text` directly |
+| typecheck | mypy `--strict` | full type coverage |
 | quality | vulture, `scripts/check_comments.py` | no dead code; comments and docstrings in English, at most 2 lines |
 | security | bandit, pip-audit | insecure patterns; known CVEs in locked dependencies |
-| test | pytest + coverage | tests pass and coverage stays at or above `fail_under` in `pyproject.toml` (ratchet: only raise it) |
+| test | pytest + coverage | tests pass; coverage at or above `fail_under` (95; only raise it) |
 | build | docker | image builds from the hashed lock file |
 
 Rules worth remembering:
-- Comments and docstrings must be English, ASCII letters only (symbols and emoji are fine), max 2 lines per block. Bot-facing strings stay Russian; they are not comments.
-- A new vulture false positive is fixed by using the code, not by whitelisting it. Handlers decorated with `@router.*` / `@dp.*` are already ignored.
+- Comments and docstrings: English, ASCII letters only (symbols and emoji are fine), max 2 lines per block. Bot-facing strings stay Russian; they are not comments.
+- Fix a vulture finding by using or deleting the code. `set_client` is a deliberate test seam listed in `api.__all__`.
 - Dependencies: edit `requirements.in` / `requirements-dev.in`, then `make lock`. Never edit the `.txt` lock files by hand.
 - Pre-commit runs ruff, mypy, vulture and the comment gate locally.
 
 ## Docker
 
-- `Dockerfile` — Python 3.12-slim, runs as non-root user `botuser`
-- `docker-compose.yml` — healthcheck, restart unless-stopped, env_file
+`Dockerfile`: Python 3.12-slim, hashed install, non-root `botuser`. `docker-compose.yml`: restart unless-stopped, `env_file: .env`.
 
 ## Gotchas
 
-- **`.env` is gitignored.** See `.env.example` for the template.
-- **`ADMIN_IDS` is a Python `set` of `int`** parsed from a comma-separated env var. Membership checks are `in ADMIN_IDS`.
-- **`ADMIN_USERNAME` is optional** — if not set, the "contact admin" message says "обратись к администратору" without a username link.
-- **Log view endpoint returns HTML, not JSON.** `services/server_service.py` `_strip_html()` removes tags; content is truncated to the last 3800 chars to fit Telegram message limits.
-- **`get_logs` uses form-encoded POST** (drops `Content-Type: application/json` header) because the Hiddify endpoint expects form data.
-- **`update_usage` endpoint returns text/html**, not JSON — `api/hiddify.py` does not call `.json()` on it.
-- **`InlineKeyboardButton(style=...)`** — the `style` kwarg (`primary`/`success`/`danger`) is an aiogram 3.25+ feature for Telegram button styling; older aiogram versions will reject it.
-- **QR codes** are generated via an external HTTP service (default `api.qrserver.com`, overridable with the `QR_API_URL` env var), not locally. The subscription URL is URL-encoded and passed as the `data` query param.
-- **Subscription URL** is `{HIDDIFY_URL}/{HIDDIFY_USER_PATH}/{uuid}/` — built in `account_service._sub_url()`, not fetched from the API.
-- **HTTP timeouts** — all API requests have 30s total / 15s connect timeout. If the Hiddify panel is unresponsive, the bot will fail with a timeout error rather than hanging indefinitely.
-- **aiohttp session creation is async** — `_get_session()` is `async` and uses a lock (`_session_lock`) to prevent double-init under concurrent requests. All callers must `await _get_session()`.
+- `.gitignore` ignores `.env.*`; `.env.example` is re-included explicitly. Keep it that way.
+- `ADMIN_IDS` is a frozenset of ints; check membership with `in ADMIN_IDS`.
+- Routers are module singletons and can attach to one dispatcher; build it once (`create_dispatcher()`).
+- `InlineKeyboardButton(style=...)` needs aiogram 3.25+.
+- QR codes come from an external service (`QR_API_URL`); the subscription URL is URL-encoded into the `data` param.
+- All panel requests time out after 30 s total / 15 s connect.

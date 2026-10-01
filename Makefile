@@ -2,14 +2,6 @@
 
 PYTHON ?= python
 
-# Dummy settings so config.py can be imported during tests
-export BOT_TOKEN ?= test
-export HIDDIFY_URL ?= http://test
-export HIDDIFY_PROXY_PATH ?= test
-export HIDDIFY_USER_PATH ?= test
-export HIDDIFY_ADMIN_UUID ?= test
-export ADMIN_IDS ?= 123
-
 install:
 	$(PYTHON) -m pip install --require-hashes -r requirements-dev.txt
 

@@ -1,8 +1,10 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from formatters.user import status_icon
 from keyboards.nav import nav_row, pagination_row
 from utils.types import JsonDict
+from utils.user_state import limit_gb
 
 # ── Admin menus ───────────────────────────────────────────────────────────────
 
@@ -32,23 +34,13 @@ def admin_main_kb() -> InlineKeyboardMarkup:
 
 def users_list_kb(users: list[JsonDict], page: int = 0, page_size: int = 8) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
+    page = min(max(page, 0), max(0, (len(users) - 1) // page_size))
     start = page * page_size
     chunk = users[start : start + page_size]
 
     for u in chunk:
-        active = u.get("is_active", False)
-        enabled = u.get("enable", False)
-        limit = u.get("usage_limit_GB") or 0.0
-        if limit == 0:
-            status = "⛔"
-        elif active:
-            status = "✅"
-        elif enabled:
-            status = "🟡"
-        else:
-            status = "⛔"
         used = u.get("current_usage_GB") or 0.0
-        label = f"{status} {u.get('name', '—')} · {used:.1f}/{limit:.0f}GB"
+        label = f"{status_icon(u)} {u.get('name', '—')} · {used:.1f}/{limit_gb(u):.0f}GB"
         kb.row(InlineKeyboardButton(text=label, callback_data=f"user:{u['uuid']}"))
 
     total_pages = max(1, (len(users) - 1) // page_size + 1)
@@ -60,11 +52,11 @@ def users_list_kb(users: list[JsonDict], page: int = 0, page_size: int = 8) -> I
     return kb.as_markup()
 
 
-def user_actions_kb(uuid: str, limit_gb: float, list_page: int = 0) -> InlineKeyboardMarkup:
-    """limit_gb == 0 means the user is blocked (unblocking needs the wizard)."""
+def user_actions_kb(uuid: str, blocked: bool, list_page: int = 0) -> InlineKeyboardMarkup:
+    """Action buttons for a user card; the first button toggles block state."""
     kb = InlineKeyboardBuilder()
 
-    if limit_gb == 0:
+    if blocked:
         kb.row(
             InlineKeyboardButton(
                 text="✅ Разблокировать", callback_data=f"user_unblock:{uuid}", style="success"
@@ -213,16 +205,12 @@ def user_main_kb() -> InlineKeyboardMarkup:
 
 
 def user_generic_back_kb() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardBuilder()
-    kb.row(*nav_row(home_cb="user_menu"))
-    return kb.as_markup()
+    return generic_back_kb(home_cb="user_menu")
 
 
 def photo_nav_kb(back_cb: str | None = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
     """Navigation for photo messages: [Back] [Home] [Close]."""
-    kb = InlineKeyboardBuilder()
-    kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
-    return kb.as_markup()
+    return generic_back_kb(back_cb=back_cb, home_cb=home_cb)
 
 
 def apps_kb(back_cb: str = "my_account", home_cb: str = "user_menu") -> InlineKeyboardMarkup:

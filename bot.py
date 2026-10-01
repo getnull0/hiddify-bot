@@ -1,16 +1,16 @@
 import asyncio
-import contextlib
 import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, ErrorEvent
+from aiogram.types import BotCommand
 
-from api.hiddify import close_session
+from api import close_client, get_client
+from api.client import API_ERRORS, describe_api_error
 from config import BOT_TOKEN
-from handlers import account, common, server, users
+from handlers import account, common, errors, server, users
 from middlewares.throttle import ThrottleMiddleware
 
 logging.basicConfig(
@@ -20,43 +20,40 @@ logging.basicConfig(
 # Our logger is INFO; everything else (aiogram) is WARNING and above
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
+logging.getLogger("handlers").setLevel(logging.INFO)
+
+
+def create_dispatcher(throttle_rate: float = 1.0) -> Dispatcher:
+    """Build the dispatcher with middleware and every router attached."""
+    dp = Dispatcher(storage=MemoryStorage())
+    dp.message.middleware(ThrottleMiddleware(rate=throttle_rate))
+    dp.callback_query.middleware(ThrottleMiddleware(rate=throttle_rate))
+    dp.include_routers(common.router, users.router, server.router, account.router, errors.router)
+    return dp
+
+
+async def check_panel() -> None:
+    """Log a clear hint at startup if the panel is unreachable or the credentials are wrong."""
+    try:
+        me = await get_client().get_me()
+    except API_ERRORS as exc:
+        log.warning("Hiddify panel check failed: %s", describe_api_error(exc))
+    else:
+        log.info("Hiddify panel OK (admin: %s, %s)", me.get("name"), me.get("mode"))
 
 
 async def main() -> None:
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp = Dispatcher(storage=MemoryStorage())
-
-    # Global error handler
-    @dp.errors()
-    async def error_handler(event: ErrorEvent) -> None:
-        log.error("Unhandled error: %s", event.exception, exc_info=event.exception)
-        if event.update.callback_query:
-            cb = event.update.callback_query
-            with contextlib.suppress(Exception):
-                await cb.answer("❌ Ошибка сервера, попробуй позже", show_alert=True)
-        elif event.update.message:
-            with contextlib.suppress(Exception):
-                await event.update.message.answer("❌ Ошибка сервера, попробуй позже")
-
-    dp.message.middleware(ThrottleMiddleware(rate=1.0))
-    dp.callback_query.middleware(ThrottleMiddleware(rate=1.0))
-
-    dp.include_router(common.router)
-    dp.include_router(users.router)
-    dp.include_router(server.router)
-    dp.include_router(account.router)
-
+    dp = create_dispatcher()
     await bot.set_my_commands(
-        [
-            BotCommand(command="start", description="Открыть панель управления"),
-        ]
+        [BotCommand(command="start", description="Открыть панель управления")]
     )
-
+    await check_panel()
     log.info("▶ Bot started (@%s)", (await bot.get_me()).username)
     try:
         await dp.start_polling(bot, skip_updates=True)
     finally:
-        await close_session()
+        await close_client()
         await bot.session.close()
         log.info("⏹ Bot stopped")
 

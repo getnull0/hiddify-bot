@@ -1,3 +1,5 @@
+"""Entry points and navigation shared by admins and regular users."""
+
 import contextlib
 
 from aiogram import F, Router
@@ -8,46 +10,45 @@ from aiogram.types import CallbackQuery, Message
 
 from config import ADMIN_IDS, ADMIN_USERNAME
 from filters.admin import IsAdmin
+from formatters import texts
 from keyboards.inline import admin_main_kb, user_main_kb
 from services.user_service import find_by_tg_id
 from utils.telegram import message_of, user_id_of
+from utils.user_state import is_blocked
 
 router = Router()
 
-_ADMIN_MENU_TEXT = "👋 <b>Hiddify Admin</b>\n\nВыбери действие:"
+
+def _contact() -> str:
+    return f"@{ADMIN_USERNAME}" if ADMIN_USERNAME else "администратору"
 
 
 @router.message(Command("start"))
 async def start(msg: Message, state: FSMContext) -> None:
     await state.clear()
-    # Regular user: check the profile
-    if user_id_of(msg) not in ADMIN_IDS:
-        user = await find_by_tg_id(user_id_of(msg))
-        if not user:
-            contact = f"@{ADMIN_USERNAME}" if ADMIN_USERNAME else "администратору"
-            await msg.answer(
-                f"👋 Привет!\n\n"
-                f"❌ Твой аккаунт не найден в системе.\n\n"
-                f"Для подключения обратись к администратору: {contact}"
-            )
-            return
-        limit = user.get("usage_limit_GB") or 0
-        enabled = user.get("enable", True)
-        if limit == 0 or not enabled:
-            contact = f"@{ADMIN_USERNAME}" if ADMIN_USERNAME else "администратору"
-            await msg.answer(
-                f"👋 Привет!\n\n"
-                f"⛔ Твой аккаунт заблокирован.\n\n"
-                f"Обратись к администратору: {contact}"
-            )
-            return
-    await msg.answer("👋 Привет!\n\nВыбери что тебе нужно:", reply_markup=user_main_kb())
+    tg_id = user_id_of(msg)
+    if tg_id in ADMIN_IDS:
+        await msg.answer(texts.ADMIN_MENU, reply_markup=admin_main_kb())
+        return
+    user = await find_by_tg_id(tg_id)
+    if not user:
+        await msg.answer(
+            "👋 Привет!\n\n"
+            "❌ Твой аккаунт не найден в системе.\n\n"
+            f"Для подключения обратись к администратору: {_contact()}"
+        )
+    elif is_blocked(user):
+        await msg.answer(
+            f"👋 Привет!\n\n⛔ Твой аккаунт заблокирован.\n\nОбратись к администратору: {_contact()}"
+        )
+    else:
+        await msg.answer("👋 Привет!\n\nВыбери что тебе нужно:", reply_markup=user_main_kb())
 
 
 @router.message(Command("admin"), IsAdmin())
 async def admin_panel(msg: Message, state: FSMContext) -> None:
     await state.clear()
-    await msg.answer(_ADMIN_MENU_TEXT, reply_markup=admin_main_kb())
+    await msg.answer(texts.ADMIN_MENU, reply_markup=admin_main_kb())
 
 
 @router.callback_query(F.data == "close")
@@ -62,7 +63,7 @@ async def close(cb: CallbackQuery, state: FSMContext) -> None:
 async def menu_admin(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
     await state.clear()
-    await message_of(cb).edit_text(_ADMIN_MENU_TEXT, reply_markup=admin_main_kb())
+    await message_of(cb).edit_text(texts.ADMIN_MENU, reply_markup=admin_main_kb())
 
 
 @router.callback_query(F.data == "user_menu")
