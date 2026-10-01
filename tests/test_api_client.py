@@ -166,14 +166,20 @@ class TestErrors:
         finally:
             await bad.close()
 
-    async def test_wrong_proxy_path_is_not_found(self, panel: FakePanel):
+    async def test_wrong_proxy_path_is_a_hinted_bad_request(self, panel: FakePanel):
         bad = HiddifyClient(make_settings(panel.base_url, HIDDIFY_PROXY_PATH="other"))
         try:
             with pytest.raises(HiddifyApiError) as exc:
                 await bad.get_me()
-            assert exc.value.status == 404
+            assert exc.value.status == 400
+            assert "HIDDIFY_PROXY_PATH" in describe_api_error(exc.value)
         finally:
             await bad.close()
+
+    def test_other_bad_requests_keep_the_panel_message(self):
+        assert (
+            describe_api_error(HiddifyApiError(400, "User limit reached")) == "User limit reached"
+        )
 
     async def test_server_error_message_comes_from_json(
         self, client: HiddifyClient, panel: FakePanel

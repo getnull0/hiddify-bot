@@ -53,4 +53,5 @@ build/
 .pytest_cache/
 htmlcov/
 .coverage
+coverage.xml
 DOCS/archive/

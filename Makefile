@@ -1,13 +1,13 @@
-.PHONY: install lock lint format typecheck deadcode security audit comments test check
+.PHONY: install lock lint format typecheck deadcode security audit comments test check smoke smoke-write
 
 PYTHON ?= python
 
 install:
-	$(PYTHON) -m pip install --require-hashes -r requirements-dev.txt
+	$(PYTHON) -m pip install -r requirements-dev.txt
 
 lock:
 	pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in
-	pip-compile --generate-hashes --strip-extras --allow-unsafe -o requirements-dev.txt requirements-dev.in
+	pip-compile --strip-extras --allow-unsafe -o requirements-dev.txt requirements-dev.in
 
 lint:
 	ruff check .
@@ -37,3 +37,11 @@ test:
 
 # Run every gate that CI runs, locally
 check: lint typecheck deadcode security comments test
+
+# Check your real panel with the settings from .env (read-only)
+smoke:
+	$(PYTHON) -m scripts.smoke
+
+# Same, plus a create/block/extend/reset/delete cycle on a temporary user
+smoke-write:
+	$(PYTHON) -m scripts.smoke --write

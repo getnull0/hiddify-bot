@@ -197,9 +197,11 @@ def fsm_nav_kb(back_cb: str = "menu", has_prev: bool = False) -> InlineKeyboardM
 # ── User menus ────────────────────────────────────────────────────────────────
 
 
-def user_main_kb() -> InlineKeyboardMarkup:
+def user_main_kb(is_admin: bool = False) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="📊 Мой аккаунт", callback_data="my_account"))
+    if is_admin:
+        kb.row(InlineKeyboardButton(text="⚙️ Админ-панель", callback_data="menu"))
     kb.row(InlineKeyboardButton(text="✕ Закрыть", callback_data="close", style="primary"))
     return kb.as_markup()
 

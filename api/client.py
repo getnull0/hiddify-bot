@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from datetime import date
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import quote
 
@@ -35,6 +36,8 @@ def describe_api_error(exc: BaseException) -> str:
     if isinstance(exc, HiddifyApiError):
         if exc.status == 403:
             return "доступ запрещён. Проверь HIDDIFY_ADMIN_UUID и HIDDIFY_PROXY_PATH"
+        if exc.status == HTTPStatus.BAD_REQUEST and exc.message == "invalid request":
+            return "панель не узнала адрес. Проверь HIDDIFY_PROXY_PATH (нужен админский путь)"
         return exc.message
     if isinstance(exc, TimeoutError):
         return "панель не отвечает (таймаут)"
