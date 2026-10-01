@@ -11,6 +11,12 @@ from aiohttp.test_utils import TestServer
 
 ADMIN_UUID = "00000000-0000-0000-0000-00000000aaaa"
 PROXY_PATH = "adminpath"
+USER_PATH = "userpath"
+# Days between traffic resets per mode; the panel reports 10000 for "no_reset"
+RESET_DAYS = {"daily": 1, "weekly": 7, "monthly": 30}
+NO_RESET_DAYS = 10_000
+# The panel ignores empty values for these fields, so they can be set but never cleared
+_NOT_CLEARABLE = {"comment", "telegram_id"}
 MODES = {"no_reset", "monthly", "weekly", "daily"}
 GB = 1024**3
 LOG_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -54,6 +60,14 @@ class FakePanel:
     def __init__(self, admin_uuid: str = ADMIN_UUID, proxy_path: str = PROXY_PATH) -> None:
         self.admin_uuid = admin_uuid
         self.proxy_path = proxy_path
+        self.user_path = USER_PATH
+        self.telegram_proxy = False
+        self.user_api_available = True
+        self.user_scope_keys: list[str | None] = []
+        self.nodes: list[dict[str, Any]] = []
+        self.node_ping: dict[str, Any] = {"online": True, "version": "14.0.0b5", "error": ""}
+        self.node_sync_ok = True
+        self.dashboard: dict[str, Any] = default_dashboard()
         self.users: dict[str, dict[str, Any]] = {}
         self.logs: dict[str, str] = {"panel.log": "line one\nline <two> & three"}
         self.requests: list[tuple[str, str]] = []
@@ -118,6 +132,13 @@ class FakePanel:
         app.router.add_post(f"{prefix}/admin/log/", self._log)
         app.router.add_get(f"{prefix}/admin/me/", self._me)
         app.router.add_get(f"{prefix}/panel/info/", self._info)
+        app.router.add_get(f"{prefix}/admin/dashboard/", self._dashboard)
+        app.router.add_get(f"{prefix}/admin/nodes/", self._nodes)
+        app.router.add_get(f"{prefix}/admin/nodes/{{node_id}}/ping/", self._node_ping)
+        app.router.add_post(f"{prefix}/admin/nodes/{{node_id}}/sync/", self._node_sync)
+        user_prefix = f"/{self.user_path}/{{uuid}}/api/v2/user"
+        app.router.add_get(f"{user_prefix}/me/", self._profile)
+        app.router.add_get(f"{user_prefix}/mtproxies/", self._mtproxies)
         app.router.add_route("*", "/{tail:.*}", self._unknown_path)
         self._server = TestServer(app)
         await self._server.start_server()
@@ -135,12 +156,17 @@ class FakePanel:
             status, message = self._forced_failure
             self._forced_failure = None
             return json_error(status, message)
-        if request.headers.get("Hiddify-API-Key") != self.admin_uuid:
+        user_scope = request.path.startswith(f"/{self.user_path}/")
+        if user_scope:
+            self.user_scope_keys.append(request.headers.get("Hiddify-API-Key"))
+        elif request.headers.get("Hiddify-API-Key") != self.admin_uuid:
             return json_error(403, "Unathorized")
         if self._forced_response:
             status, body, content_type = self._forced_response
             self._forced_response = None
             return web.Response(status=status, text=body, content_type=content_type)
+        if user_scope and not self.user_api_available:
+            return json_error(404, "Not found")
         return await handler(request)
 
     # ── Handlers ──────────────────────────────────────────────────────────────
@@ -183,7 +209,7 @@ class FakePanel:
             return json_error(404, "user not found")
         data = await request.json()
         for key, value in data.items():
-            if key in _EDITABLE and value is not None:
+            if key in _EDITABLE and value is not None and (value or key not in _NOT_CLEARABLE):
                 user[key] = value
         user["is_active"] = _is_active(user)
         return web.json_response(user)
@@ -234,6 +260,59 @@ class FakePanel:
             text=LOG_PAGE.replace("{body}", html.escape(self.logs[name])), content_type="text/html"
         )
 
+    async def _dashboard(self, request: web.Request) -> web.Response:
+        return web.json_response(self.dashboard)
+
+    async def _nodes(self, request: web.Request) -> web.Response:
+        return web.json_response({"nodes": self.nodes, "panel_version": "14.0.0b5"})
+
+    async def _node_ping(self, request: web.Request) -> web.Response:
+        return web.json_response(self.node_ping)
+
+    async def _node_sync(self, request: web.Request) -> web.Response:
+        if not self.node_sync_ok:
+            return json_error(502, "The node did not answer the sync request")
+        return web.json_response({"status": 200, "msg": "ok"})
+
+    async def _profile(self, request: web.Request) -> web.Response:
+        user = self._user_or_404(request)
+        if user is None:
+            return web.Response(status=302, headers={"Location": f"/{self.user_path}/"})
+        period = RESET_DAYS.get(user["mode"])
+        reset_days = NO_RESET_DAYS
+        if period:
+            elapsed = (
+                (date.today() - date.fromisoformat(user["start_date"])).days
+                if user["start_date"]
+                else 0
+            )
+            reset_days = period - elapsed % period
+        return web.json_response(
+            {
+                "profile_title": user["name"],
+                "profile_usage_current": user["current_usage_GB"],
+                "profile_usage_total": user["usage_limit_GB"],
+                "profile_remaining_days": user["package_days"],
+                "profile_reset_days": reset_days,
+                "telegram_proxy_enable": self.telegram_proxy,
+                "telegram_id": user["telegram_id"],
+            }
+        )
+
+    async def _mtproxies(self, request: web.Request) -> web.Response:
+        user = self._user_or_404(request)
+        if user is None:
+            return web.Response(status=302)
+        if not self.telegram_proxy:
+            return json_error(404, "Telegram mtproxy is not enable")
+        secret = "ee" + user["uuid"].replace("-", "")
+        return web.json_response(
+            [
+                {"link": f"tg://proxy?server={host}&port=443&secret={secret}", "title": host}
+                for host in ("vpn.example.com", "vpn2.example.com")
+            ]
+        )
+
     async def _me(self, request: web.Request) -> web.Response:
         return web.json_response(
             {"name": "Owner", "mode": "super_admin", "uuid": self.admin_uuid, "can_add_admin": True}
@@ -246,3 +325,51 @@ class FakePanel:
 def started_ago(days: int) -> str:
     """A panel-formatted start date `days` days in the past."""
     return (date.today() - timedelta(days=days)).isoformat()
+
+
+def default_dashboard() -> dict[str, Any]:
+    """Dashboard payload in the shape of the real panel (traffic in bytes)."""
+    series = [
+        {"date": f"2026-09-{day:02d}", "usage": day * 100 * 1024**2, "online": day % 4}
+        for day in range(1, 31)
+    ]
+    return {
+        "range_days": 30,
+        "series": series,
+        "users": {
+            "total": 12,
+            "enabled": 10,
+            "online": {"m5": 2, "h24": 5, "today": 4, "yesterday": 6, "week": 8, "month": 10},
+            "averages": {"daily_week": 3, "daily_month": 4},
+        },
+        "usage": {
+            "totals": {
+                "today": 2 * 1024**3,
+                "yesterday": 1024**3,
+                "week": 9 * 1024**3,
+                "month": 40 * 1024**3,
+                "total": 120 * 1024**3,
+            },
+            "averages": {"daily_week": 1024**3, "daily_month": 1024**3},
+            "previous": {"week": 8 * 1024**3, "month": 50 * 1024**3},
+            "trends": {"day": 100.0, "week": 12.5, "month": -20.0},
+            "peak": {"date": "2026-09-30", "usage": 3 * 1024**3},
+        },
+        "nodes": [],
+    }
+
+
+def node_row(node_id: int = 1, status: str = "online", **overrides: Any) -> dict[str, Any]:
+    """A remote node as listed by the panel (admin_url carries the admin's secret uuid)."""
+    row = {
+        "id": node_id,
+        "name": f"node-{node_id}",
+        "host": f"node{node_id}.example.com",
+        "admin_url": f"https://node{node_id}.example.com/path/{ADMIN_UUID}/",
+        "last_seen": "2026-10-01T12:00:00",
+        "status": status,
+        "domains": [f"node{node_id}.example.com"],
+        "details": {"today_usage": 1024**3, "today_online": 3},
+    }
+    row.update(overrides)
+    return row

@@ -15,6 +15,7 @@ from keyboards.inline import (
     my_account_kb,
     my_link_kb,
     photo_nav_kb,
+    proxy_kb,
     user_generic_back_kb,
 )
 from utils.qr import qr_url
@@ -51,7 +52,9 @@ async def _show_account(cb: CallbackQuery) -> None:
         await message_of(cb).edit_text(text, reply_markup=kb)
         return
     data = await svc.get_account(user["uuid"])
-    await message_of(cb).edit_text(account_card(data), reply_markup=my_account_kb(home_cb=home))
+    await message_of(cb).edit_text(
+        account_card(data), reply_markup=my_account_kb(home_cb=home, proxy=data["telegram_proxy"])
+    )
 
 
 @router.callback_query(F.data == "admin_my_account", IsAdmin())
@@ -92,6 +95,24 @@ async def my_qr(cb: CallbackQuery) -> None:
         caption=texts.qr_caption(sub_url, "Отсканируй QR-код"),
         reply_markup=photo_nav_kb(back_cb="my_link", home_cb=home),
     )
+
+
+@router.callback_query(F.data == "my_proxy")
+async def my_proxy(cb: CallbackQuery) -> None:
+    await cb.answer()
+    user = await _own_user(cb)
+    if not user:
+        await message_of(cb).edit_text(_USER_NOT_FOUND, reply_markup=user_generic_back_kb())
+        return
+    proxies = await svc.get_telegram_proxies(user["uuid"])
+    back, home = _nav(cb)
+    if not proxies:
+        await message_of(cb).edit_text(
+            "📡 Прокси для Telegram пока не включён администратором.",
+            reply_markup=generic_back_kb(back_cb=back, home_cb=home),
+        )
+        return
+    await message_of(cb).edit_text(texts.PROXY, reply_markup=proxy_kb(proxies, back, home))
 
 
 @router.callback_query(F.data == "my_apps")

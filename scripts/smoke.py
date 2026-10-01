@@ -35,6 +35,20 @@ async def check_subscription_link(report: Report, uuid: str) -> None:
     report.check(status == HTTPStatus.OK, "ссылка подписки открывается", hint or f"HTTP {status}")
 
 
+async def check_profile(client: HiddifyClient, uuid: str) -> None:
+    try:
+        profile = await client.get_user_profile(uuid)
+    except API_ERRORS as exc:
+        print(
+            f"INFO профиль пользователя недоступен ({describe_api_error(exc)}): без дней до сброса"
+        )
+        return
+    proxy = "включён" if profile.get("telegram_proxy_enable") else "выключен"
+    print(
+        f"OK   профиль пользователя: до сброса {profile.get('profile_reset_days')} дн., прокси Telegram {proxy}"
+    )
+
+
 async def read_only_checks(client: HiddifyClient, report: Report) -> None:
     me = await client.get_me()
     is_super = me.get("mode") == "super_admin"
@@ -50,6 +64,7 @@ async def read_only_checks(client: HiddifyClient, report: Report) -> None:
     report.check("system" in status.get("stats", {}), "статус сервера")
     if users:
         await check_subscription_link(report, users[0]["uuid"])
+        await check_profile(client, users[0]["uuid"])
     else:
         print("INFO пользователей нет: проверка ссылки подписки пропущена (запусти с --write)")
 

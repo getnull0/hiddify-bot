@@ -430,3 +430,28 @@ class TestPanelFailures:
         await bot.press(f"user_block:{uuid_of(user)}", ADMIN_ID)
         assert panel.users[uuid_of(user)]["enable"] is True
         assert bot.edits == []
+
+
+class TestUserNote:
+    async def test_note_is_set_and_shown_escaped(self, bot: Harness, panel: FakePanel):
+        user = panel.add_user()
+        await bot.press(f"user:{uuid_of(user)}", ADMIN_ID)
+        assert f"user_set_comment:{uuid_of(user)}" in bot.last_buttons
+        await bot.press(f"user_set_comment:{uuid_of(user)}", ADMIN_ID)
+        assert "Панель не позволяет очистить" in bot.last_text
+        await bot.text("<b>owes me</b> 5$", ADMIN_ID)
+        assert panel.users[uuid_of(user)]["comment"] == "<b>owes me</b> 5$"
+        assert "&lt;b&gt;owes me&lt;/b&gt; 5$" in bot.last_text
+
+    async def test_invalid_notes_are_re_prompted(self, bot: Harness, panel: FakePanel):
+        user = panel.add_user()
+        await bot.press(f"user_set_comment:{uuid_of(user)}", ADMIN_ID)
+        await bot.text("x" * 201, ADMIN_ID)
+        assert "от 1 до 200" in bot.last_text
+        await bot.non_text(ADMIN_ID)
+        assert "от 1 до 200" in bot.last_text
+        assert panel.users[uuid_of(user)]["comment"] is None
+
+    async def test_admin_menu_has_the_statistics_button(self, bot: Harness):
+        await bot.text("/admin", ADMIN_ID)
+        assert "stats" in bot.last_buttons

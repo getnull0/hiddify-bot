@@ -73,11 +73,16 @@ def _user_path(uuid: str) -> str:
     return f"/admin/user/{quote(uuid, safe='')}/"
 
 
+def _user_api(uuid: str, endpoint: str) -> str:
+    return f"/{quote(uuid, safe='')}/api/v2/user/{endpoint}/"
+
+
 class HiddifyClient:
     """HTTP client with a shared session and a short-lived users cache."""
 
     def __init__(self, settings: Settings) -> None:
         self._base = settings.api_base
+        self._user_base = f"{settings.hiddify_url}/{settings.user_path}"
         self._headers = {"Hiddify-API-Key": settings.admin_uuid, "Accept": "application/json"}
         # False skips certificate checks (self-signed / sslip.io setups)
         self._ssl = settings.verify_ssl
@@ -108,12 +113,14 @@ class HiddifyClient:
         payload: JsonDict | None = None,
         form: dict[str, str] | None = None,
         as_text: bool = False,
+        as_user: bool = False,
     ) -> Any:
+        """Call the panel; `as_user` targets the client path, where the uuid in the URL is the key."""
         session = await self._get_session()
         async with session.request(
             method,
-            f"{self._base}{path}",
-            headers=self._headers,
+            f"{self._user_base if as_user else self._base}{path}",
+            headers={"Accept": "application/json"} if as_user else self._headers,
             json=payload,
             data=form,
             ssl=self._ssl,
@@ -128,7 +135,7 @@ class HiddifyClient:
             )
         if status >= 400:
             raise HiddifyApiError(status, _error_message(body, status, reason))
-        if method != "GET" and path.startswith("/admin/user"):
+        if method != "GET" and not as_user and path.startswith("/admin/user"):
             self.invalidate_users()
         if as_text:
             return body
@@ -234,3 +241,29 @@ class HiddifyClient:
 
     async def get_panel_info(self) -> JsonDict:
         return await self._request_object("GET", "/panel/info/")
+
+    async def get_user_profile(self, uuid: str) -> JsonDict:
+        """The user's own view: days to reset, Telegram proxy flag, and more."""
+        return await self._request_object("GET", _user_api(uuid, "me"), as_user=True)
+
+    async def get_telegram_proxies(self, uuid: str) -> list[JsonDict]:
+        """Telegram proxy links; the panel answers 404 when the proxy is not enabled."""
+        result = await self._request("GET", _user_api(uuid, "mtproxies"), as_user=True)
+        if not isinstance(result, list):
+            raise HiddifyApiError(200, "неожиданный формат списка прокси")
+        return result
+
+    async def get_dashboard(self) -> JsonDict:
+        return await self._request_object("GET", "/admin/dashboard/")
+
+    async def list_nodes(self) -> list[JsonDict]:
+        nodes = (await self._request_object("GET", "/admin/nodes/")).get("nodes")
+        if not isinstance(nodes, list):
+            raise HiddifyApiError(200, "неожиданный формат списка узлов")
+        return nodes
+
+    async def ping_node(self, node_id: int) -> JsonDict:
+        return await self._request_object("GET", f"/admin/nodes/{node_id}/ping/")
+
+    async def sync_node(self, node_id: int) -> None:
+        await self._request("POST", f"/admin/nodes/{node_id}/sync/")

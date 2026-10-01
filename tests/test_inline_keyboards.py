@@ -2,7 +2,11 @@
 
 from keyboards.inline import (
     admin_main_kb,
+    my_account_kb,
+    nodes_kb,
     photo_nav_kb,
+    proxy_kb,
+    server_status_kb,
     user_actions_kb,
     user_main_kb,
     users_list_kb,
@@ -112,3 +116,46 @@ class TestPhotoKeyboards:
         assert "my_link" in callbacks
         assert "user_menu" in callbacks
         assert "close" in callbacks
+
+
+class TestV14Keyboards:
+    @staticmethod
+    def _buttons(kb):
+        return [b for row in kb.inline_keyboard for b in row]
+
+    def test_admin_menu_has_statistics(self):
+        assert "stats" in [b.callback_data for b in self._buttons(admin_main_kb())]
+
+    def test_user_card_has_a_note_button(self):
+        kb = user_actions_kb("u1", blocked=False)
+        assert "user_set_comment:u1" in [b.callback_data for b in self._buttons(kb)]
+
+    def test_proxy_button_only_when_offered(self):
+        assert "my_proxy" not in [b.callback_data for b in self._buttons(my_account_kb())]
+        kb = my_account_kb(proxy=True)
+        assert "my_proxy" in [b.callback_data for b in self._buttons(kb)]
+
+    def test_proxy_keyboard_has_url_buttons_and_navigation(self):
+        proxies = [{"title": "vpn.example.com", "link": "tg://proxy?server=a&port=443&secret=ee"}]
+        buttons = self._buttons(proxy_kb(proxies, "my_account", "user_menu"))
+        assert buttons[0].url == "tg://proxy?server=a&port=443&secret=ee"
+        assert {"my_account", "user_menu", "close"} <= {b.callback_data for b in buttons[1:]}
+
+    def test_proxy_keyboard_is_capped_and_titles_truncated(self):
+        proxies = [{"title": "x" * 60, "link": f"tg://proxy?server={i}"} for i in range(20)]
+        buttons = self._buttons(proxy_kb(proxies, "b", "h"))
+        assert len([b for b in buttons if b.url]) == 8
+        assert len(buttons[0].text) <= 3 + 18
+
+    def test_status_keyboard_shows_servers_only_when_there_are_nodes(self):
+        assert "nodes" not in [b.callback_data for b in self._buttons(server_status_kb(0))]
+        kb = server_status_kb(2)
+        button = next(b for b in self._buttons(kb) if b.callback_data == "nodes")
+        assert "(2)" in button.text
+
+    def test_nodes_keyboard_pings_and_syncs_each_node(self):
+        kb = nodes_kb([{"id": 7, "name": "edge"}, {"id": 9}])
+        callbacks = [b.callback_data for b in self._buttons(kb)]
+        assert {"node_ping:7", "node_sync:7", "node_ping:9", "node_sync:9", "server_status"} <= set(
+            callbacks
+        )

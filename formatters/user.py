@@ -86,6 +86,8 @@ def account_card(data: JsonDict) -> str:
         days_text = f"<b>{days} дн.</b>"
 
     mode = MODE_LABELS.get(data.get("mode", ""), data.get("mode", ""))
+    if (reset_days := data.get("reset_days")) is not None:
+        mode = f"{mode}, через {reset_days} дн."
     expiry = data.get("expiry_date") or "—"
     last_online = _fmt_online(data.get("last_online"))
 

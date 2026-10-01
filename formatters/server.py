@@ -35,13 +35,12 @@ def server_status(data: JsonDict) -> str:
     if hist:
         total = hist.get("total", {})
         today = hist.get("today", {})
-        users = total.get("users", "—")
         today_gb = int(today.get("usage", 0) or 0) / 1024**3
         total_gb = int(total.get("usage", 0) or 0) / 1024**3
-        online = total.get("online", "—")
+        # total.users counts deleted users and total.online means "seen in 10 years", so both are
+        # left out; the statistics screen has the accurate numbers.
         lines += [
             "",
-            f"👥 Пользователей: <b>{users}</b>   Онлайн: <b>{online}</b>",
             f"📈 Сегодня: <b>{today_gb:.2f} GB</b>   Всего: <b>{total_gb:.2f} GB</b>",
         ]
 

@@ -49,7 +49,7 @@ Edit `requirements.in` or `requirements-dev.in`, then run `make lock`. Never edi
 
 ## Boundaries
 
-- Never touch the panel through user-scoped `/user/*` endpoints; see `docs/hiddify-api.md`.
+- Never send the admin key to `/user/*` endpoints. The only allowed use is the uuid-in-path client route for optional extras, which must degrade gracefully; see `docs/hiddify-api.md`.
 - Do not block users with `usage_limit_GB=0`; blocking is `enable=False`.
 - Do not add runtime dependencies without a strong reason; the bot is deliberately small.
 - Ask before changing user-visible behavior (menus, texts, flows) beyond what was requested.

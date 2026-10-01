@@ -1,5 +1,6 @@
 """Multi-step input flows: create, edit limit or days, link a Telegram id, unblock with a limit."""
 
+from collections.abc import Callable
 from typing import Any
 
 from aiogram import F, Router
@@ -12,7 +13,15 @@ from handlers.users.states import CreateUser, EditUser, SetTgId, UnblockUser
 from handlers.users.views import current_list_page, edit_card, reply_card
 from keyboards.inline import admin_main_kb, fsm_cancel_kb, fsm_nav_kb
 from utils.telegram import callback_arg, message_of, text_of
-from utils.validation import MAX_DAYS, MAX_LIMIT_GB, parse_days, parse_limit_gb, parse_telegram_id
+from utils.validation import (
+    MAX_COMMENT_CHARS,
+    MAX_DAYS,
+    MAX_LIMIT_GB,
+    parse_comment,
+    parse_days,
+    parse_limit_gb,
+    parse_telegram_id,
+)
 
 router = Router()
 
@@ -28,7 +37,14 @@ _BAD_LIMIT = f"❌ Нужно положительное число (до {MAX_L
 _BAD_DAYS = f"❌ Нужно целое число дней от 1 до {MAX_DAYS}"
 _BAD_TG_ID = "❌ Нужен числовой Telegram ID"
 
+_BAD_COMMENT = f"❌ Заметка должна быть от 1 до {MAX_COMMENT_CHARS} символов"
 _NAME_MAX = 64
+# Editable user fields: how to parse the typed text and what to say when it is invalid
+_EDIT_FIELDS: dict[str, tuple[Callable[[str], Any], str]] = {
+    "usage_limit_GB": (parse_limit_gb, _BAD_LIMIT),
+    "package_days": (parse_days, _BAD_DAYS),
+    "comment": (parse_comment, _BAD_COMMENT),
+}
 
 
 # ── Cancel / back ─────────────────────────────────────────────────────────────
@@ -101,6 +117,17 @@ async def set_limit_start(cb: CallbackQuery, state: FSMContext) -> None:
     await _start_edit(cb, state, "usage_limit_GB", "Введи новый лимит трафика в GB (например: 50):")
 
 
+@router.callback_query(F.data.startswith("user_set_comment:"))
+async def set_comment_start(cb: CallbackQuery, state: FSMContext) -> None:
+    await _start_edit(
+        cb,
+        state,
+        "comment",
+        "Введи заметку к пользователю (до 200 символов).\n"
+        "Панель не позволяет очистить заметку, только заменить её.",
+    )
+
+
 @router.callback_query(F.data.startswith("user_set_days:"))
 async def set_days_start(cb: CallbackQuery, state: FSMContext) -> None:
     await _start_edit(cb, state, "package_days", "Введи количество дней (например: 30):")
@@ -110,10 +137,9 @@ async def set_days_start(cb: CallbackQuery, state: FSMContext) -> None:
 async def edit_value(msg: Message, state: FSMContext) -> None:
     data = await state.get_data()
     field = data["field"]
-    raw = text_of(msg)
-    value = parse_limit_gb(raw) if field == "usage_limit_GB" else parse_days(raw)
+    parse, bad = _EDIT_FIELDS[field]
+    value = parse(text_of(msg))
     if value is None:
-        bad = _BAD_LIMIT if field == "usage_limit_GB" else _BAD_DAYS
         await msg.answer(f"{bad}, попробуй ещё раз:", reply_markup=_cancel_kb(data))
         return
     user = await svc.update(data["uuid"], **{field: value})

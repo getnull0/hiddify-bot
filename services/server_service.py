@@ -5,6 +5,7 @@ import html
 import re
 
 from api import get_client
+from api.client import API_ERRORS
 from utils.types import JsonDict
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -37,3 +38,23 @@ async def get_panel_info() -> JsonDict:
         "admin_name": me.get("name", "—"),
         "admin_mode": me.get("mode", "—"),
     }
+
+
+async def get_stats() -> JsonDict:
+    return await get_client().get_dashboard()
+
+
+async def get_nodes() -> list[JsonDict]:
+    """Remote nodes; empty when there are none or the panel does not support nodes."""
+    try:
+        return await get_client().list_nodes()
+    except API_ERRORS:
+        return []
+
+
+async def ping_node(node_id: int) -> JsonDict:
+    return await get_client().ping_node(node_id)
+
+
+async def sync_node(node_id: int) -> None:
+    await get_client().sync_node(node_id)
