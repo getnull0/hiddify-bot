@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from keyboards.nav import nav_row, pagination_row
+from utils.types import JsonDict
 
 # ── Admin menus ───────────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ def admin_main_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def users_list_kb(users: list[dict], page: int = 0, page_size: int = 8) -> InlineKeyboardMarkup:
+def users_list_kb(users: list[JsonDict], page: int = 0, page_size: int = 8) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     start = page * page_size
     chunk = users[start : start + page_size]
@@ -60,7 +61,7 @@ def users_list_kb(users: list[dict], page: int = 0, page_size: int = 8) -> Inlin
 
 
 def user_actions_kb(uuid: str, limit_gb: float, list_page: int = 0) -> InlineKeyboardMarkup:
-    """limit_gb == 0 → пользователь заблокирован (нужен визард для разблокировки)."""
+    """limit_gb == 0 means the user is blocked (unblocking needs the wizard)."""
     kb = InlineKeyboardBuilder()
 
     if limit_gb == 0:
@@ -159,7 +160,7 @@ def my_link_kb(back_cb: str = "my_account", home_cb: str = "user_menu") -> Inlin
 
 
 def my_account_kb(home_cb: str = "menu") -> InlineKeyboardMarkup:
-    """Кнопки под карточкой своего аккаунта (и для админа и для юзера)."""
+    """Buttons under the own-account card (for both admins and users)."""
     kb = InlineKeyboardBuilder()
     kb.row(
         InlineKeyboardButton(text="🔑 Ссылка", callback_data="my_link"),
@@ -176,7 +177,7 @@ def generic_back_kb(back_cb: str | None = None, home_cb: str = "menu") -> Inline
 
 
 def fsm_cancel_kb(back_cb: str = "menu") -> InlineKeyboardMarkup:
-    """Только кнопка отмены — для одношаговых визардов."""
+    """Cancel button only, for single-step wizards."""
     kb = InlineKeyboardBuilder()
     kb.row(
         InlineKeyboardButton(
@@ -187,7 +188,7 @@ def fsm_cancel_kb(back_cb: str = "menu") -> InlineKeyboardMarkup:
 
 
 def fsm_nav_kb(back_cb: str = "menu", has_prev: bool = False) -> InlineKeyboardMarkup:
-    """Навигация для многошаговых визардов: [◀️ Назад] + [❌ Отмена]."""
+    """Navigation for multi-step wizards: [Back] + [Cancel]."""
     kb = InlineKeyboardBuilder()
     row = []
     if has_prev:
@@ -217,15 +218,8 @@ def user_generic_back_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def photo_close_kb() -> InlineKeyboardMarkup:
-    """Одна кнопка «Закрыть» для фото-сообщений (QR и т.п.)."""
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="✕ Закрыть", callback_data="close"))
-    return kb.as_markup()
-
-
 def photo_nav_kb(back_cb: str | None = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
-    """Навигация для фото-сообщений: [◀️ Назад] [🏠] [✕ Закрыть]."""
+    """Navigation for photo messages: [Back] [Home] [Close]."""
     kb = InlineKeyboardBuilder()
     kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
     return kb.as_markup()

@@ -1,7 +1,4 @@
-"""
-Личный кабинет — работает и для админа (кнопка в меню),
-и для обычного юзера (через user_menu).
-"""
+"""Personal account: works for admins (menu button) and regular users (user_menu)."""
 
 from urllib.parse import quote
 
@@ -22,6 +19,7 @@ from keyboards.inline import (
     user_generic_back_kb,
 )
 from utils.html import esc
+from utils.telegram import message_of, user_id_of
 
 router = Router()
 
@@ -30,21 +28,21 @@ def _qr_url(sub_url: str) -> str:
     return f"{QR_API_URL}?size=300x300&margin=10&data={quote(sub_url, safe='')}"
 
 
-async def _render_account(cb: CallbackQuery, uuid: str, is_admin: bool):
+async def _render_account(cb: CallbackQuery, uuid: str, is_admin: bool) -> None:
     data = await svc.get_account(uuid)
     home = "menu" if is_admin else "user_menu"
-    await cb.message.edit_text(account_card(data), reply_markup=my_account_kb(home_cb=home))
+    await message_of(cb).edit_text(account_card(data), reply_markup=my_account_kb(home_cb=home))
 
 
-# ── Для администратора (кнопка "Мой аккаунт" в admin menu) ───────────────────
+# ── Admin ("My account" button in the admin menu) ────────────────────────────
 
 
 @router.callback_query(F.data == "admin_my_account", IsAdmin())
-async def admin_my_account(cb: CallbackQuery):
+async def admin_my_account(cb: CallbackQuery) -> None:
     await cb.answer()
-    user = await user_svc.find_by_tg_id(cb.from_user.id)
+    user = await user_svc.find_by_tg_id(user_id_of(cb))
     if not user:
-        await cb.message.edit_text(
+        await message_of(cb).edit_text(
             "❌ Твой Telegram ID не привязан ни к одному пользователю.\n\n"
             "Создай себе юзера через панель и укажи свой Telegram ID.",
             reply_markup=generic_back_kb(),
@@ -53,15 +51,15 @@ async def admin_my_account(cb: CallbackQuery):
     await _render_account(cb, user["uuid"], is_admin=True)
 
 
-# ── Для обычного юзера ────────────────────────────────────────────────────────
+# ── Regular user ─────────────────────────────────────────────────────────────
 
 
 @router.callback_query(F.data == "my_account")
-async def my_account(cb: CallbackQuery):
+async def my_account(cb: CallbackQuery) -> None:
     await cb.answer()
-    user = await user_svc.find_by_tg_id(cb.from_user.id)
+    user = await user_svc.find_by_tg_id(user_id_of(cb))
     if not user:
-        await cb.message.edit_text(
+        await message_of(cb).edit_text(
             "❌ Аккаунт не найден.\nОбратись к администратору.",
             reply_markup=user_generic_back_kb(),
         )
@@ -70,17 +68,17 @@ async def my_account(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "my_link")
-async def my_link(cb: CallbackQuery):
+async def my_link(cb: CallbackQuery) -> None:
     await cb.answer()
-    user = await user_svc.find_by_tg_id(cb.from_user.id)
+    user = await user_svc.find_by_tg_id(user_id_of(cb))
     if not user:
-        await cb.message.edit_text("❌ Аккаунт не найден.", reply_markup=user_generic_back_kb())
+        await message_of(cb).edit_text("❌ Аккаунт не найден.", reply_markup=user_generic_back_kb())
         return
     data = await svc.get_account(user["uuid"])
-    is_admin = cb.from_user.id in ADMIN_IDS
+    is_admin = user_id_of(cb) in ADMIN_IDS
     back = "admin_my_account" if is_admin else "my_account"
     home = "menu" if is_admin else "user_menu"
-    await cb.message.edit_text(
+    await message_of(cb).edit_text(
         f"🔑 <b>Ссылка подписки</b>\n\n"
         f"<code>{esc(data['sub_url'])}</code>\n\n"
         f"<i>Нажми на ссылку чтобы скопировать\n"
@@ -90,16 +88,16 @@ async def my_link(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "my_qr")
-async def my_qr(cb: CallbackQuery):
+async def my_qr(cb: CallbackQuery) -> None:
     await cb.answer()
-    user = await user_svc.find_by_tg_id(cb.from_user.id)
+    user = await user_svc.find_by_tg_id(user_id_of(cb))
     if not user:
         return
     data = await svc.get_account(user["uuid"])
     sub_url = data["sub_url"]
-    is_admin = cb.from_user.id in ADMIN_IDS
+    is_admin = user_id_of(cb) in ADMIN_IDS
     home = "menu" if is_admin else "user_menu"
-    await cb.message.answer_photo(
+    await message_of(cb).answer_photo(
         URLInputFile(_qr_url(sub_url), filename="qr.png"),
         caption=f"📲 <b>Отсканируй QR-код</b>\n\nИли скопируй ссылку:\n<code>{esc(sub_url)}</code>",
         reply_markup=photo_nav_kb(back_cb="my_link", home_cb=home),
@@ -107,16 +105,16 @@ async def my_qr(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "my_apps")
-async def my_apps(cb: CallbackQuery):
+async def my_apps(cb: CallbackQuery) -> None:
     await cb.answer()
-    user = await user_svc.find_by_tg_id(cb.from_user.id)
+    user = await user_svc.find_by_tg_id(user_id_of(cb))
     if not user:
-        await cb.message.edit_text("❌ Аккаунт не найден.", reply_markup=user_generic_back_kb())
+        await message_of(cb).edit_text("❌ Аккаунт не найден.", reply_markup=user_generic_back_kb())
         return
-    is_admin = cb.from_user.id in ADMIN_IDS
+    is_admin = user_id_of(cb) in ADMIN_IDS
     back = "admin_my_account" if is_admin else "my_account"
     home = "menu" if is_admin else "user_menu"
-    await cb.message.edit_text(
+    await message_of(cb).edit_text(
         "📱 <b>Приложения для подключения</b>\n\n"
         "Нажми на приложение — скачаешь и настроишь через «Импорт подписки».\n\n"
         "<b>Hiddify</b> — рекомендуем, поддерживает все протоколы.\n"

@@ -17,19 +17,19 @@ logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-# Наш логгер — INFO, всё остальное (aiogram) — только WARNING+
+# Our logger is INFO; everything else (aiogram) is WARNING and above
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-async def main():
+async def main() -> None:
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Глобальный обработчик ошибок
+    # Global error handler
     @dp.errors()
-    async def error_handler(event: ErrorEvent):
-        log.exception("Unhandled error: %s", event.exception, exc_info=event.exception)
+    async def error_handler(event: ErrorEvent) -> None:
+        log.error("Unhandled error: %s", event.exception, exc_info=event.exception)
         if event.update.callback_query:
             cb = event.update.callback_query
             with contextlib.suppress(Exception):

@@ -28,3 +28,23 @@ repos:
               \.secrets\.baseline|
               tests/.*|
           )$
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: vulture
+        name: vulture (dead code)
+        entry: vulture
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: comments
+        name: comment language and length gate
+        entry: python scripts/check_comments.py
+        language: system
+        types: [python]

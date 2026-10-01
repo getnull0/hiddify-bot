@@ -10,6 +10,7 @@ from config import ADMIN_IDS, ADMIN_USERNAME
 from filters.admin import IsAdmin
 from keyboards.inline import admin_main_kb, user_main_kb
 from services.user_service import find_by_tg_id
+from utils.telegram import message_of, user_id_of
 
 router = Router()
 
@@ -17,11 +18,11 @@ _ADMIN_MENU_TEXT = "👋 <b>Hiddify Admin</b>\n\nВыбери действие:"
 
 
 @router.message(Command("start"))
-async def start(msg: Message, state: FSMContext):
+async def start(msg: Message, state: FSMContext) -> None:
     await state.clear()
-    # Обычный юзер — проверяем профиль
-    if msg.from_user.id not in ADMIN_IDS:
-        user = await find_by_tg_id(msg.from_user.id)
+    # Regular user: check the profile
+    if user_id_of(msg) not in ADMIN_IDS:
+        user = await find_by_tg_id(user_id_of(msg))
         if not user:
             contact = f"@{ADMIN_USERNAME}" if ADMIN_USERNAME else "администратору"
             await msg.answer(
@@ -44,32 +45,32 @@ async def start(msg: Message, state: FSMContext):
 
 
 @router.message(Command("admin"), IsAdmin())
-async def admin_panel(msg: Message, state: FSMContext):
+async def admin_panel(msg: Message, state: FSMContext) -> None:
     await state.clear()
     await msg.answer(_ADMIN_MENU_TEXT, reply_markup=admin_main_kb())
 
 
 @router.callback_query(F.data == "close")
-async def close(cb: CallbackQuery, state: FSMContext):
+async def close(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
     await state.clear()
     with contextlib.suppress(TelegramBadRequest):
-        await cb.message.delete()
+        await message_of(cb).delete()
 
 
 @router.callback_query(F.data == "menu", IsAdmin())
-async def menu_admin(cb: CallbackQuery, state: FSMContext):
+async def menu_admin(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
     await state.clear()
-    await cb.message.edit_text(_ADMIN_MENU_TEXT, reply_markup=admin_main_kb())
+    await message_of(cb).edit_text(_ADMIN_MENU_TEXT, reply_markup=admin_main_kb())
 
 
 @router.callback_query(F.data == "user_menu")
-async def menu_user(cb: CallbackQuery):
+async def menu_user(cb: CallbackQuery) -> None:
     await cb.answer()
-    await cb.message.edit_text("Выбери что тебе нужно:", reply_markup=user_main_kb())
+    await message_of(cb).edit_text("Выбери что тебе нужно:", reply_markup=user_main_kb())
 
 
 @router.callback_query(F.data == "noop")
-async def noop(cb: CallbackQuery):
+async def noop(cb: CallbackQuery) -> None:
     await cb.answer()

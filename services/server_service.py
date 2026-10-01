@@ -1,10 +1,11 @@
-"""Бизнес-логика статуса сервера и системных операций."""
+"""Business logic for server status and system operations."""
 
 import asyncio
 import html
 import re
 
 import api.hiddify as api
+from utils.types import JsonDict
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
@@ -13,7 +14,7 @@ def _strip_html(text: str) -> str:
     return html.unescape(_HTML_TAG_RE.sub("", text))
 
 
-async def get_status() -> dict:
+async def get_status() -> JsonDict:
     return await api.get_server_status()
 
 
@@ -29,7 +30,7 @@ async def update_usage() -> None:
     await api.update_usage()
 
 
-async def get_panel_info() -> dict:
+async def get_panel_info() -> JsonDict:
     info, me = await asyncio.gather(api.get_panel_info(), api.get_me())
     return {
         "version": info.get("version", "—"),

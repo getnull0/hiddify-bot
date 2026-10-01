@@ -1,4 +1,5 @@
 from utils.html import esc as _esc
+from utils.types import JsonDict
 
 _MODE_LABELS = {
     "no_reset": "без сброса",
@@ -15,18 +16,18 @@ def _fmt_online(val: str | None) -> str:
 
 
 def _fmt_date(val: str | None) -> str:
-    """ISO 2024-01-15 → 15.01.2024"""
+    """Convert ISO 2024-01-15 to 15.01.2024."""
     if not val:
         return "—"
     try:
         y, m, d = val[:10].split("-")
-        return f"{d}.{m}.{y}"
-    except Exception:
+    except ValueError:
         return _esc(val)
+    return f"{d}.{m}.{y}"
 
 
-def user_card(u: dict) -> str:
-    """Карточка пользователя для администратора."""
+def user_card(u: JsonDict) -> str:
+    """User card for the admin view."""
     used = u.get("current_usage_GB") or 0.0
     limit = u.get("usage_limit_GB") or 0.0
     days = u.get("package_days") or 0
@@ -65,8 +66,8 @@ def user_card(u: dict) -> str:
     return "\n".join(lines)
 
 
-def account_card(data: dict) -> str:
-    """Карточка для самого пользователя."""
+def account_card(data: JsonDict) -> str:
+    """Card shown to the user themselves."""
     used = data["used"]
     total = data["total"]
     pct = (used / total * 100) if total else 0

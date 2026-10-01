@@ -2,7 +2,6 @@
 
 from keyboards.inline import (
     admin_main_kb,
-    photo_close_kb,
     photo_nav_kb,
     user_actions_kb,
     user_main_kb,
@@ -103,11 +102,6 @@ class TestUsersListKb:
 
 
 class TestPhotoKeyboards:
-    def test_photo_close(self):
-        kb = photo_close_kb()
-        callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-        assert callbacks == ["close"]
-
     def test_photo_nav_has_back_home_close(self):
         kb = photo_nav_kb(back_cb="my_link", home_cb="user_menu")
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]

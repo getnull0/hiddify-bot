@@ -29,15 +29,13 @@ pre-commit install
 
 # Update locked deps (edit requirements*.in, then recompile on Python 3.12)
 pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in
-pip-compile --generate-hashes --strip-extras -o requirements-dev.txt requirements-dev.in
+pip-compile --generate-hashes --strip-extras --allow-unsafe -o requirements-dev.txt requirements-dev.in
 
-# Lint
-ruff check .
-ruff format --check .
-
-# Tests
-pytest -v
+# Run every CI gate locally (lint, types, dead code, security, comments, tests)
+make check
 ```
+
+Individual gates: `make lint | typecheck | deadcode | security | audit | comments | test`.
 
 Python 3.12. CI runs on push/PR via `.github/workflows/ci.yml` (lint + test + Docker build).
 
@@ -71,7 +69,10 @@ keyboards/        → InlineKeyboard builders + shared nav/pagination helpers in
 formatters/       → pure functions turning API dicts into HTML strings (with escaping)
 filters/admin.py  → IsAdmin filter (checks event.from_user.id against ADMIN_IDS)
 middlewares/      → ThrottleMiddleware (rate limiting per user)
-utils/html.py     → esc(): shared HTML-escape helper for aiogram HTML parse mode
+utils/            → html.py esc() HTML-escape helper; telegram.py typed accessors for optional event fields
+                    (message_of, user_id_of, callback_arg, data_of, text_of); validation.py number parsers;
+                    types.py JsonDict alias
+scripts/          → check_comments.py: CI gate for comment language and length
 tests/            → pytest tests (formatters, keyboards, nav, account_service, server formatters)
 ```
 
@@ -95,7 +96,7 @@ Do not switch to `/user/*` endpoints without confirming the Hiddify bug is fixed
 
 ### Users cache
 
-`api/hiddify.py` keeps a module-level `_users_cache` with a 30-second TTL (`CACHE_TTL`). **Every function that mutates a user (`create_user`, `update_user`, `delete_user`, `reset_user_traffic`, `toggle_user`, `extend_user`) must set `_users_cache = None` to invalidate it.** Forgetting this leaves stale list views for up to 30s.
+`api/hiddify.py` keeps a module-level `_users_cache` with a 30-second TTL (`CACHE_TTL`). **Every function that mutates a user (`create_user`, `update_user`, `delete_user`, `reset_user_traffic`, `extend_user`) must set `_users_cache = None` to invalidate it.** Forgetting this leaves stale list views for up to 30s.
 
 ### Blocking vs. disabling
 
@@ -134,7 +135,7 @@ Colon-separated prefixes, parsed by `cb.data.split(":")` or `.startswith(...)`:
 
 `keyboards/nav.py` provides `nav_row(back_cb, home_cb)` and `pagination_row(...)`. Most keyboards end with `kb.row(*nav_row(...))` so every screen has consistent Back / Home / Close buttons. Admin home callback is `menu`; regular-user home is `user_menu`. When adding a keyboard, follow this pattern.
 
-Photo messages (QR codes) use `photo_nav_kb(back_cb, home_cb)` for full navigation, or `photo_close_kb()` for just a close button.
+Photo messages (QR codes) use `photo_nav_kb(back_cb, home_cb)` for navigation.
 
 ### FSM wizards
 
@@ -154,23 +155,36 @@ Logging is set to `WARNING` globally except the bot's own logger (`bot`), which 
 
 ## Testing
 
-Tests are in `tests/` and use pytest with `pytest-asyncio` (auto mode). Run with `pytest -v`. Tests cover:
+Tests are in `tests/` and use pytest with `pytest-asyncio` (auto mode). Run with `make test`. Tests cover:
 
 - `test_formatters.py` — `user_card`, `account_card` (including HTML escaping, missing fields, edge cases)
 - `test_keyboards.py` — `nav_row`, `pagination_row`
-- `test_inline_keyboards.py` — keyboard builders (`admin_main_kb`, `user_actions_kb`, `users_list_kb`, photo keyboards)
+- `test_inline_keyboards.py` — keyboard builders (`admin_main_kb`, `user_actions_kb`, `users_list_kb`, `photo_nav_kb`)
 - `test_account_service.py` — `_sub_url`, `_days_left`, `_expiry_date` (date math, expiry, invalid-date handling)
 - `test_server_formatters.py` — `server_status`, `panel_info` (nested/flat data, usage history, top-5, HTML escaping, zero-division guards)
+- `test_telegram_utils.py`, `test_validation.py` — typed event accessors and number parsing (NaN/inf rejected)
+- `test_check_comments.py` — the comment gate itself
 
-Tests require env vars to be set (config.py validates at import). Use: `BOT_TOKEN=test HIDDIFY_URL=http://test HIDDIFY_PROXY_PATH=test HIDDIFY_USER_PATH=test HIDDIFY_ADMIN_UUID=test ADMIN_IDS=123 pytest -v`
+Tests require env vars (config.py validates at import); `make test` sets dummy values. Without make: `BOT_TOKEN=test HIDDIFY_URL=http://test HIDDIFY_PROXY_PATH=test HIDDIFY_USER_PATH=test HIDDIFY_ADMIN_UUID=test ADMIN_IDS=123 pytest -v`
 
-## Linting
+## Quality gates
 
-Ruff is configured in `pyproject.toml`:
-- `ruff check .` — lint (E, W, F, I, B, UP, SIM, RUF rules)
-- `ruff format .` — format
+CI (`.github/workflows/ci.yml`) runs these jobs in parallel; the final `gate` job fails if any of them fails and is the single check to require in branch protection.
 
-Pre-commit hooks (`.pre-commit-config.yaml`): ruff, trailing whitespace, end-of-file fixer, detect-secrets.
+| Job | Tool | What it enforces |
+|-----|------|------------------|
+| lint | ruff | style, imports, bugbear, bandit rules (`S`), complexity, no `print`, no commented-out code, no blind `except` |
+| typecheck | mypy `--strict` | full type coverage; use `utils/telegram.py` helpers instead of `cb.message` / `msg.text` directly |
+| quality | vulture, `scripts/check_comments.py` | no dead code; comments and docstrings in English, at most 2 lines |
+| security | bandit, pip-audit | insecure patterns; known CVEs in locked dependencies |
+| test | pytest + coverage | tests pass and coverage stays at or above `fail_under` in `pyproject.toml` (ratchet: only raise it) |
+| build | docker | image builds from the hashed lock file |
+
+Rules worth remembering:
+- Comments and docstrings must be English, ASCII letters only (symbols and emoji are fine), max 2 lines per block. Bot-facing strings stay Russian; they are not comments.
+- A new vulture false positive is fixed by using the code, not by whitelisting it. Handlers decorated with `@router.*` / `@dp.*` are already ignored.
+- Dependencies: edit `requirements.in` / `requirements-dev.in`, then `make lock`. Never edit the `.txt` lock files by hand.
+- Pre-commit runs ruff, mypy, vulture and the comment gate locally.
 
 ## Docker
 

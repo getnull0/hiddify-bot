@@ -6,61 +6,126 @@ on:
   pull_request:
     branches: [master, main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BOT_TOKEN: test
+  HIDDIFY_URL: http://test
+  HIDDIFY_PROXY_PATH: test
+  HIDDIFY_USER_PATH: test
+  HIDDIFY_ADMIN_UUID: test
+  ADMIN_IDS: "123"
+
 jobs:
   lint:
+    name: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-dev.txt
-
-      - name: Install dependencies
-        run: pip install --require-hashes -r requirements-dev.txt
-
+      - run: pip install --require-hashes -r requirements-dev.txt
       - name: Ruff check
         run: ruff check .
-
       - name: Ruff format check
         run: ruff format --check .
 
-  test:
+  typecheck:
+    name: typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-dev.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
+      - name: Mypy (strict)
+        run: mypy .
 
-      - name: Install dependencies
-        run: |
-          pip install --require-hashes -r requirements-dev.txt
-
-      - name: Run tests
-        env:
-          BOT_TOKEN: test
-          HIDDIFY_URL: http://test
-          HIDDIFY_PROXY_PATH: test
-          HIDDIFY_USER_PATH: test
-          HIDDIFY_ADMIN_UUID: test
-          ADMIN_IDS: "123"
-        run: pytest -v
-
-  build:
+  quality:
+    name: quality (dead code, comments)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
+      - name: Dead code (vulture)
+        run: vulture
+      - name: Comment gate (English, max 2 lines)
+        run: python scripts/check_comments.py
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
+  security:
+    name: security (bandit, pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
+      - name: Static security scan (bandit)
+        run: bandit -q -c pyproject.toml -r .
+      - name: Dependency vulnerabilities (pip-audit)
+        run: pip-audit -r requirements.txt --no-deps --disable-pip
 
+  test:
+    name: test (pytest + coverage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
+      - name: Run tests with coverage gate
+        run: pytest -v --cov --cov-report=term-missing:skip-covered --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  build:
+    name: docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       - name: Build Docker image
         run: docker build -t hiddify-bot-ci .
+
+  gate:
+    name: gate
+    if: always()
+    needs: [lint, typecheck, quality, security, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every check to pass
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            exit 1
+          fi

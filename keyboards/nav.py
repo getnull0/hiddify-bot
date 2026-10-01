@@ -1,10 +1,10 @@
-"""Унифицированные компоненты навигации и пагинации."""
+"""Shared navigation and pagination components."""
 
 from aiogram.types import InlineKeyboardButton
 
 
 def nav_row(back_cb: str | None = None, home_cb: str = "menu") -> list[InlineKeyboardButton]:
-    """Нижняя строка: [◀️ Назад] [🏠] [✕ Закрыть] — все синие."""
+    """Bottom row: [Back] [Home] [Close], all blue."""
     row = []
     if back_cb:
         row.append(InlineKeyboardButton(text="◀️ Назад", callback_data=back_cb, style="primary"))
@@ -16,7 +16,7 @@ def nav_row(back_cb: str | None = None, home_cb: str = "menu") -> list[InlineKey
 def pagination_row(
     page: int, total_pages: int, cb_prefix: str
 ) -> list[InlineKeyboardButton] | None:
-    """Строка пагинации: [◀️] [X/Y] [▶️]. None если страница одна."""
+    """Pagination row: [prev] [X/Y] [next]. None if there is a single page."""
     if total_pages <= 1:
         return None
     row = []

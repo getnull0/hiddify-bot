@@ -23,7 +23,7 @@ HIDDIFY_PROXY_PATH = os.environ["HIDDIFY_PROXY_PATH"]
 HIDDIFY_USER_PATH = os.environ["HIDDIFY_USER_PATH"]
 HIDDIFY_ADMIN_UUID = os.environ["HIDDIFY_ADMIN_UUID"]
 
-ADMIN_IDS = set(int(x.strip()) for x in os.environ["ADMIN_IDS"].split(","))
+ADMIN_IDS = {int(x.strip()) for x in os.environ["ADMIN_IDS"].split(",")}
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
 
 QR_API_URL = os.environ.get("QR_API_URL", "https://api.qrserver.com/v1/create-qr-code/")
