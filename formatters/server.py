@@ -35,8 +35,8 @@ def server_status(data: dict) -> str:
         total = hist.get("total", {})
         today = hist.get("today", {})
         users = total.get("users", "—")
-        today_gb = int(today.get("usage", 0) or 0) / 1024 ** 3
-        total_gb = int(total.get("usage", 0) or 0) / 1024 ** 3
+        today_gb = int(today.get("usage", 0) or 0) / 1024**3
+        total_gb = int(total.get("usage", 0) or 0) / 1024**3
         online = total.get("online", "—")
         lines += [
             "",

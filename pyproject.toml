@@ -29,6 +29,9 @@ select = [
 ]
 ignore = [
     "E501",   # line too long — ruff format handles it
+    "RUF001", # Cyrillic UI strings
+    "RUF002", # Cyrillic docstrings
+    "RUF003", # Cyrillic comments
 ]
 
 [tool.ruff.lint.isort]

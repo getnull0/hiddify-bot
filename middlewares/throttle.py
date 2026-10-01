@@ -2,7 +2,7 @@ from collections import OrderedDict
 from time import monotonic
 
 from aiogram import BaseMiddleware
-from aiogram.types import TelegramObject, CallbackQuery
+from aiogram.types import CallbackQuery, TelegramObject
 
 _MAX_ENTRIES = 5000
 

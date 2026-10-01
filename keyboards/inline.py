@@ -1,10 +1,10 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from keyboards.nav import nav_row, pagination_row
 
-
 # ── Admin menus ───────────────────────────────────────────────────────────────
+
 
 def admin_main_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
@@ -32,7 +32,7 @@ def admin_main_kb() -> InlineKeyboardMarkup:
 def users_list_kb(users: list[dict], page: int = 0, page_size: int = 8) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     start = page * page_size
-    chunk = users[start:start + page_size]
+    chunk = users[start : start + page_size]
 
     for u in chunk:
         active = u.get("is_active", False)
@@ -64,13 +64,17 @@ def user_actions_kb(uuid: str, limit_gb: float, list_page: int = 0) -> InlineKey
     kb = InlineKeyboardBuilder()
 
     if limit_gb == 0:
-        kb.row(InlineKeyboardButton(
-            text="✅ Разблокировать", callback_data=f"user_unblock:{uuid}", style="success"
-        ))
+        kb.row(
+            InlineKeyboardButton(
+                text="✅ Разблокировать", callback_data=f"user_unblock:{uuid}", style="success"
+            )
+        )
     else:
-        kb.row(InlineKeyboardButton(
-            text="🔴 Заблокировать", callback_data=f"user_block:{uuid}", style="danger"
-        ))
+        kb.row(
+            InlineKeyboardButton(
+                text="🔴 Заблокировать", callback_data=f"user_block:{uuid}", style="danger"
+            )
+        )
 
     kb.row(
         InlineKeyboardButton(text="🔗 Ссылка", callback_data=f"user_link:{uuid}"),
@@ -88,9 +92,11 @@ def user_actions_kb(uuid: str, limit_gb: float, list_page: int = 0) -> InlineKey
         InlineKeyboardButton(text="🔁 Режим сброса", callback_data=f"user_set_mode:{uuid}"),
         InlineKeyboardButton(text="🔗 Telegram ID", callback_data=f"user_set_tgid:{uuid}"),
     )
-    kb.row(InlineKeyboardButton(
-        text="🗑 Удалить", callback_data=f"user_delete_confirm:{uuid}", style="danger"
-    ))
+    kb.row(
+        InlineKeyboardButton(
+            text="🗑 Удалить", callback_data=f"user_delete_confirm:{uuid}", style="danger"
+        )
+    )
     kb.row(*nav_row(back_cb=f"users_list:{list_page}", home_cb="menu"))
     return kb.as_markup()
 
@@ -163,7 +169,7 @@ def my_account_kb(home_cb: str = "menu") -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def generic_back_kb(back_cb: str = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
+def generic_back_kb(back_cb: str | None = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
     return kb.as_markup()
@@ -172,9 +178,11 @@ def generic_back_kb(back_cb: str = None, home_cb: str = "menu") -> InlineKeyboar
 def fsm_cancel_kb(back_cb: str = "menu") -> InlineKeyboardMarkup:
     """Только кнопка отмены — для одношаговых визардов."""
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(
-        text="❌ Отмена", callback_data=f"fsm_cancel:{back_cb}", style="danger"
-    ))
+    kb.row(
+        InlineKeyboardButton(
+            text="❌ Отмена", callback_data=f"fsm_cancel:{back_cb}", style="danger"
+        )
+    )
     return kb.as_markup()
 
 
@@ -183,17 +191,18 @@ def fsm_nav_kb(back_cb: str = "menu", has_prev: bool = False) -> InlineKeyboardM
     kb = InlineKeyboardBuilder()
     row = []
     if has_prev:
-        row.append(InlineKeyboardButton(
-            text="◀️ Назад", callback_data="fsm_back", style="primary"
-        ))
-    row.append(InlineKeyboardButton(
-        text="❌ Отмена", callback_data=f"fsm_cancel:{back_cb}", style="danger"
-    ))
+        row.append(InlineKeyboardButton(text="◀️ Назад", callback_data="fsm_back", style="primary"))
+    row.append(
+        InlineKeyboardButton(
+            text="❌ Отмена", callback_data=f"fsm_cancel:{back_cb}", style="danger"
+        )
+    )
     kb.row(*row)
     return kb.as_markup()
 
 
 # ── User menus ────────────────────────────────────────────────────────────────
+
 
 def user_main_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
@@ -215,7 +224,7 @@ def photo_close_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def photo_nav_kb(back_cb: str = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
+def photo_nav_kb(back_cb: str | None = None, home_cb: str = "menu") -> InlineKeyboardMarkup:
     """Навигация для фото-сообщений: [◀️ Назад] [🏠] [✕ Закрыть]."""
     kb = InlineKeyboardBuilder()
     kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
@@ -225,20 +234,32 @@ def photo_nav_kb(back_cb: str = None, home_cb: str = "menu") -> InlineKeyboardMa
 def apps_kb(back_cb: str = "my_account", home_cb: str = "user_menu") -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.row(
-        InlineKeyboardButton(text="🤖 Hiddify Android", url="https://play.google.com/store/apps/details?id=app.hiddify.com"),
+        InlineKeyboardButton(
+            text="🤖 Hiddify Android",
+            url="https://play.google.com/store/apps/details?id=app.hiddify.com",
+        ),
         InlineKeyboardButton(text="🍎 Hiddify iOS", url="https://apps.apple.com/app/id6596777532"),
     )
-    kb.row(InlineKeyboardButton(
-        text="💻 Hiddify Desktop (GitHub)",
-        url="https://github.com/hiddify/hiddify-app/releases/latest",
-    ))
     kb.row(
-        InlineKeyboardButton(text="🤖 v2rayNG", url="https://github.com/2dust/v2rayNG/releases/latest"),
+        InlineKeyboardButton(
+            text="💻 Hiddify Desktop (GitHub)",
+            url="https://github.com/hiddify/hiddify-app/releases/latest",
+        )
+    )
+    kb.row(
+        InlineKeyboardButton(
+            text="🤖 v2rayNG", url="https://github.com/2dust/v2rayNG/releases/latest"
+        ),
         InlineKeyboardButton(text="🍎 Streisand", url="https://apps.apple.com/app/id6450534064"),
     )
     kb.row(
-        InlineKeyboardButton(text="🤖 NekoBox", url="https://github.com/MatsuriDayo/NekoBoxForAndroid/releases/latest"),
-        InlineKeyboardButton(text="💻 Nekoray", url="https://github.com/MatsuriDayo/nekoray/releases/latest"),
+        InlineKeyboardButton(
+            text="🤖 NekoBox",
+            url="https://github.com/MatsuriDayo/NekoBoxForAndroid/releases/latest",
+        ),
+        InlineKeyboardButton(
+            text="💻 Nekoray", url="https://github.com/MatsuriDayo/nekoray/releases/latest"
+        ),
     )
     kb.row(*nav_row(back_cb=back_cb, home_cb=home_cb))
     return kb.as_markup()

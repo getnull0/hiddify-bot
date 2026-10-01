@@ -1,4 +1,5 @@
 """Бизнес-логика управления пользователями Hiddify."""
+
 import api.hiddify as api
 
 
@@ -43,7 +44,8 @@ async def search(query: str) -> list[dict]:
     q = query.lower()
     users = await api.get_users()
     return [
-        u for u in users
+        u
+        for u in users
         if q in (u.get("name") or "").lower()
         or q == str(u.get("telegram_id") or "")
         or q in str(u.get("uuid") or "").lower()

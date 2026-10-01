@@ -1,4 +1,5 @@
 """Tests for formatters.user — pure functions, no external deps needed."""
+
 from formatters.user import account_card, user_card
 
 

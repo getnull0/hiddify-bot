@@ -2,9 +2,10 @@
 Личный кабинет — работает и для админа (кнопка в меню),
 и для обычного юзера (через user_menu).
 """
+
 from urllib.parse import quote
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, URLInputFile
 
 import services.account_service as svc
@@ -12,9 +13,15 @@ import services.user_service as user_svc
 from config import ADMIN_IDS, QR_API_URL
 from filters.admin import IsAdmin
 from formatters.user import account_card
-from keyboards.inline import generic_back_kb, user_generic_back_kb, my_link_kb, my_account_kb, photo_nav_kb, apps_kb
+from keyboards.inline import (
+    apps_kb,
+    generic_back_kb,
+    my_account_kb,
+    my_link_kb,
+    photo_nav_kb,
+    user_generic_back_kb,
+)
 from utils.html import esc
-
 
 router = Router()
 
@@ -31,6 +38,7 @@ async def _render_account(cb: CallbackQuery, uuid: str, is_admin: bool):
 
 # ── Для администратора (кнопка "Мой аккаунт" в admin menu) ───────────────────
 
+
 @router.callback_query(F.data == "admin_my_account", IsAdmin())
 async def admin_my_account(cb: CallbackQuery):
     await cb.answer()
@@ -46,6 +54,7 @@ async def admin_my_account(cb: CallbackQuery):
 
 
 # ── Для обычного юзера ────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "my_account")
 async def my_account(cb: CallbackQuery):
@@ -89,7 +98,6 @@ async def my_qr(cb: CallbackQuery):
     data = await svc.get_account(user["uuid"])
     sub_url = data["sub_url"]
     is_admin = cb.from_user.id in ADMIN_IDS
-    back = "admin_my_account" if is_admin else "my_account"
     home = "menu" if is_admin else "user_menu"
     await cb.message.answer_photo(
         URLInputFile(_qr_url(sub_url), filename="qr.png"),

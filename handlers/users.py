@@ -1,18 +1,26 @@
 from urllib.parse import quote
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery, URLInputFile
+from aiogram.types import CallbackQuery, Message, URLInputFile
 
 import services.user_service as svc
 from config import QR_API_URL
 from filters.admin import IsAdmin
 from formatters.user import user_card
 from keyboards.inline import (
-    admin_main_kb, users_list_kb, user_actions_kb,
-    confirm_delete_kb, user_link_kb, user_mode_kb, generic_back_kb,
-    fsm_cancel_kb, fsm_nav_kb, photo_nav_kb, apps_kb,
+    admin_main_kb,
+    apps_kb,
+    confirm_delete_kb,
+    fsm_cancel_kb,
+    fsm_nav_kb,
+    generic_back_kb,
+    photo_nav_kb,
+    user_actions_kb,
+    user_link_kb,
+    user_mode_kb,
+    users_list_kb,
 )
 from services.account_service import get_account
 from utils.html import esc
@@ -21,17 +29,22 @@ router = Router()
 router.message.filter(IsAdmin())
 router.callback_query.filter(IsAdmin())
 
-_MODE_LABELS = {"monthly": "ежемесячно", "weekly": "еженедельно",
-                "daily": "ежедневно", "no_reset": "без сброса"}
+_MODE_LABELS = {
+    "monthly": "ежемесячно",
+    "weekly": "еженедельно",
+    "daily": "ежедневно",
+    "no_reset": "без сброса",
+}
 
 
 # ── FSM ───────────────────────────────────────────────────────────────────────
 
+
 class CreateUser(StatesGroup):
-    name    = State()
-    days    = State()
+    name = State()
+    days = State()
     limit_gb = State()
-    tg_id   = State()
+    tg_id = State()
 
 
 class EditUser(StatesGroup):
@@ -52,6 +65,7 @@ class SearchUser(StatesGroup):
 
 # ── FSM: cancel / back ────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("fsm_cancel:"))
 async def fsm_cancel(cb: CallbackQuery, state: FSMContext):
     back_cb = cb.data.split(":", 1)[1]
@@ -64,7 +78,9 @@ async def fsm_cancel(cb: CallbackQuery, state: FSMContext):
         await state.update_data(list_page=list_page)
         await cb.message.edit_text(
             user_card(user),
-            reply_markup=user_actions_kb(uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page),
+            reply_markup=user_actions_kb(
+                uuid, user.get("usage_limit_GB") or 0.0, list_page=list_page
+            ),
         )
     else:
         await cb.message.edit_text(
@@ -102,6 +118,7 @@ async def fsm_back(cb: CallbackQuery, state: FSMContext):
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("users_list:"))
 async def users_list(cb: CallbackQuery, state: FSMContext):
     page = int(cb.data.split(":")[1])
@@ -119,6 +136,7 @@ async def users_list(cb: CallbackQuery, state: FSMContext):
 
 # ── Card ──────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("user:"))
 async def user_detail(cb: CallbackQuery, state: FSMContext):
     uuid = cb.data.split(":", 1)[1]
@@ -135,6 +153,7 @@ async def user_detail(cb: CallbackQuery, state: FSMContext):
 
 
 # ── Block / Unblock ───────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data.startswith("user_block:"))
 async def user_block(cb: CallbackQuery, state: FSMContext):
@@ -190,6 +209,7 @@ async def user_unblock_do(msg: Message, state: FSMContext):
 
 # ── Reset traffic ─────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("user_reset:"))
 async def user_reset(cb: CallbackQuery, state: FSMContext):
     uuid = cb.data.split(":", 1)[1]
@@ -203,6 +223,7 @@ async def user_reset(cb: CallbackQuery, state: FSMContext):
 
 
 # ── Extend ────────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data.startswith("user_extend:"))
 async def user_extend(cb: CallbackQuery, state: FSMContext):
@@ -218,6 +239,7 @@ async def user_extend(cb: CallbackQuery, state: FSMContext):
 
 
 # ── Edit limit / days ─────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data.startswith("user_set_limit:"))
 async def set_limit_start(cb: CallbackQuery, state: FSMContext):
@@ -271,6 +293,7 @@ async def edit_value(msg: Message, state: FSMContext):
 
 # ── Link ──────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("user_link:"))
 async def user_link(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
@@ -301,6 +324,7 @@ async def user_qr(cb: CallbackQuery):
 
 # ── Apps ──────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("user_apps:"))
 async def user_apps(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
@@ -316,6 +340,7 @@ async def user_apps(cb: CallbackQuery):
 
 
 # ── Set Telegram ID ───────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data.startswith("user_set_tgid:"))
 async def set_tgid_start(cb: CallbackQuery, state: FSMContext):
@@ -357,6 +382,7 @@ async def set_tgid_do(msg: Message, state: FSMContext):
 
 # ── Mode ──────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("user_set_mode:"))
 async def set_mode_menu(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
@@ -381,6 +407,7 @@ async def set_mode_do(cb: CallbackQuery, state: FSMContext):
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("user_delete_confirm:"))
 async def delete_confirm(cb: CallbackQuery):
     uuid = cb.data.split(":", 1)[1]
@@ -397,10 +424,13 @@ async def delete_do(cb: CallbackQuery, state: FSMContext):
     await cb.answer("🗑 Удалён")
     await svc.delete(uuid)
     list_page = (await state.get_data()).get("list_page", 0)
-    await cb.message.edit_text("✅ Пользователь удалён.", reply_markup=generic_back_kb(back_cb=f"users_list:{list_page}"))
+    await cb.message.edit_text(
+        "✅ Пользователь удалён.", reply_markup=generic_back_kb(back_cb=f"users_list:{list_page}")
+    )
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 @router.callback_query(F.data == "user_create")
 async def create_start(cb: CallbackQuery, state: FSMContext):
@@ -516,6 +546,7 @@ async def create_tg_id(msg: Message, state: FSMContext):
 
 # ── Search ────────────────────────────────────────────────────────────────────
 
+
 @router.callback_query(F.data == "user_search")
 async def search_start(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
@@ -533,10 +564,16 @@ async def search_do(msg: Message, state: FSMContext):
     results = await svc.search(query)
     await state.clear()
     if not results:
-        await msg.answer(f"🔍 По запросу «{esc(query)}» ничего не найдено.", reply_markup=generic_back_kb())
+        await msg.answer(
+            f"🔍 По запросу «{esc(query)}» ничего не найдено.", reply_markup=generic_back_kb()
+        )
         return
     if len(results) == 1:
         u = results[0]
-        await msg.answer(user_card(u), reply_markup=user_actions_kb(u["uuid"], u.get("usage_limit_GB") or 0.0))
+        await msg.answer(
+            user_card(u), reply_markup=user_actions_kb(u["uuid"], u.get("usage_limit_GB") or 0.0)
+        )
     else:
-        await msg.answer(f"🔍 «{esc(query)}» — найдено: {len(results)}", reply_markup=users_list_kb(results, 0))
+        await msg.answer(
+            f"🔍 «{esc(query)}» — найдено: {len(results)}", reply_markup=users_list_kb(results, 0)
+        )

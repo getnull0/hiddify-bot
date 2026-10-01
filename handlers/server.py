@@ -1,10 +1,10 @@
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 import services.server_service as svc
 from filters.admin import IsAdmin
-from formatters.server import server_status, panel_info
-from keyboards.inline import logs_menu_kb, generic_back_kb
+from formatters.server import panel_info, server_status
+from keyboards.inline import generic_back_kb, logs_menu_kb
 from utils.html import esc
 
 router = Router()

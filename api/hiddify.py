@@ -53,14 +53,14 @@ async def close_session() -> None:
 
 async def _get(path: str, headers: dict) -> Any:
     session = await _get_session()
-    async with session.get(
-        f"{_BASE}{path}", headers=headers, ssl=_ssl_ctx
-    ) as resp:
+    async with session.get(f"{_BASE}{path}", headers=headers, ssl=_ssl_ctx) as resp:
         resp.raise_for_status()
         return await resp.json()
 
 
-async def _post(path: str, headers: dict, data: dict = None, form: dict = None) -> Any:
+async def _post(
+    path: str, headers: dict, data: dict | None = None, form: dict | None = None
+) -> Any:
     session = await _get_session()
     if form:
         async with session.post(
@@ -69,27 +69,21 @@ async def _post(path: str, headers: dict, data: dict = None, form: dict = None) 
             resp.raise_for_status()
             return await resp.json()
     else:
-        async with session.post(
-            f"{_BASE}{path}", headers=headers, json=data, ssl=_ssl_ctx
-        ) as resp:
+        async with session.post(f"{_BASE}{path}", headers=headers, json=data, ssl=_ssl_ctx) as resp:
             resp.raise_for_status()
             return await resp.json()
 
 
 async def _patch(path: str, headers: dict, data: dict) -> Any:
     session = await _get_session()
-    async with session.patch(
-        f"{_BASE}{path}", headers=headers, json=data, ssl=_ssl_ctx
-    ) as resp:
+    async with session.patch(f"{_BASE}{path}", headers=headers, json=data, ssl=_ssl_ctx) as resp:
         resp.raise_for_status()
         return await resp.json()
 
 
 async def _delete(path: str, headers: dict) -> Any:
     session = await _get_session()
-    async with session.delete(
-        f"{_BASE}{path}", headers=headers, ssl=_ssl_ctx
-    ) as resp:
+    async with session.delete(f"{_BASE}{path}", headers=headers, ssl=_ssl_ctx) as resp:
         resp.raise_for_status()
         try:
             return await resp.json()
@@ -99,15 +93,14 @@ async def _delete(path: str, headers: dict) -> Any:
 
 # ── Admin: Users ──────────────────────────────────────────────────────────────
 
+
 async def get_users() -> list[dict]:
     global _users_cache, _users_cache_time, _users_by_tg_id
     now = time.time()
     if _users_cache is None or now - _users_cache_time > CACHE_TTL:
         _users_cache = await _get("/admin/user/", _ADMIN_HEADERS)
         _users_cache_time = now
-        _users_by_tg_id = {
-            u["telegram_id"]: u for u in _users_cache if u.get("telegram_id")
-        }
+        _users_by_tg_id = {u["telegram_id"]: u for u in _users_cache if u.get("telegram_id")}
     return _users_cache
 
 
@@ -115,8 +108,13 @@ async def get_user(uuid: str) -> dict:
     return await _get(f"/admin/user/{uuid}/", _ADMIN_HEADERS)
 
 
-async def create_user(name: str, days: int = 30, limit_gb: float = 50,
-                      mode: str = "no_reset", telegram_id: int = None) -> dict:
+async def create_user(
+    name: str,
+    days: int = 30,
+    limit_gb: float = 50,
+    mode: str = "no_reset",
+    telegram_id: int | None = None,
+) -> dict:
     data: dict = {
         "name": name,
         "package_days": days,
@@ -147,20 +145,14 @@ async def delete_user(uuid: str) -> dict:
 
 
 async def reset_user_traffic(uuid: str) -> dict:
-    res = await _patch(
-        f"/admin/user/{uuid}/", _ADMIN_HEADERS,
-        data={"current_usage_GB": 0}
-    )
+    res = await _patch(f"/admin/user/{uuid}/", _ADMIN_HEADERS, data={"current_usage_GB": 0})
     global _users_cache
     _users_cache = None
     return res
 
 
 async def toggle_user(uuid: str, enable: bool) -> dict:
-    res = await _patch(
-        f"/admin/user/{uuid}/", _ADMIN_HEADERS,
-        data={"enable": enable}
-    )
+    res = await _patch(f"/admin/user/{uuid}/", _ADMIN_HEADERS, data={"enable": enable})
     global _users_cache
     _users_cache = None
     return res
@@ -170,8 +162,7 @@ async def extend_user(uuid: str, days: int) -> dict:
     user = await get_user(uuid)
     current = user.get("package_days") or 0
     res = await _patch(
-        f"/admin/user/{uuid}/", _ADMIN_HEADERS,
-        data={"package_days": current + days}
+        f"/admin/user/{uuid}/", _ADMIN_HEADERS, data={"package_days": current + days}
     )
     global _users_cache
     _users_cache = None
@@ -179,6 +170,7 @@ async def extend_user(uuid: str, days: int) -> dict:
 
 
 # ── Admin: System ─────────────────────────────────────────────────────────────
+
 
 async def get_server_status() -> dict:
     return await _get("/admin/server_status/", _ADMIN_HEADERS)
@@ -212,6 +204,7 @@ async def get_panel_info() -> dict:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 # NOTE: /user/* endpoints (me, short, all-configs, apps) возвращают 400 в Hiddify v11
 # из-за бага в auth middleware. Используем admin endpoints + строим URL вручную.
+
 
 async def find_user_by_telegram_id(tg_id: int) -> dict | None:
     await get_users()

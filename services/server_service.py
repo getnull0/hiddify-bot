@@ -1,4 +1,5 @@
 """Бизнес-логика статуса сервера и системных операций."""
+
 import asyncio
 import html
 import re
@@ -30,4 +31,8 @@ async def update_usage() -> None:
 
 async def get_panel_info() -> dict:
     info, me = await asyncio.gather(api.get_panel_info(), api.get_me())
-    return {"version": info.get("version", "—"), "admin_name": me.get("name", "—"), "admin_mode": me.get("mode", "—")}
+    return {
+        "version": info.get("version", "—"),
+        "admin_name": me.get("name", "—"),
+        "admin_mode": me.get("mode", "—"),
+    }

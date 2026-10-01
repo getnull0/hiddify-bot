@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 
 from aiogram import Bot, Dispatcher
@@ -7,9 +8,9 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, ErrorEvent
 
-from config import BOT_TOKEN
-from handlers import common, users, server, account
 from api.hiddify import close_session
+from config import BOT_TOKEN
+from handlers import account, common, server, users
 from middlewares.throttle import ThrottleMiddleware
 
 logging.basicConfig(
@@ -31,15 +32,11 @@ async def main():
         log.exception("Unhandled error: %s", event.exception, exc_info=event.exception)
         if event.update.callback_query:
             cb = event.update.callback_query
-            try:
+            with contextlib.suppress(Exception):
                 await cb.answer("❌ Ошибка сервера, попробуй позже", show_alert=True)
-            except Exception:
-                pass
         elif event.update.message:
-            try:
+            with contextlib.suppress(Exception):
                 await event.update.message.answer("❌ Ошибка сервера, попробуй позже")
-            except Exception:
-                pass
 
     dp.message.middleware(ThrottleMiddleware(rate=1.0))
     dp.callback_query.middleware(ThrottleMiddleware(rate=1.0))
@@ -49,9 +46,11 @@ async def main():
     dp.include_router(server.router)
     dp.include_router(account.router)
 
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Открыть панель управления"),
-    ])
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Открыть панель управления"),
+        ]
+    )
 
     log.info("▶ Bot started (@%s)", (await bot.get_me()).username)
     try:

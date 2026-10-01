@@ -1,4 +1,5 @@
 """Tests for keyboards.inline keyboard builders."""
+
 from keyboards.inline import (
     admin_main_kb,
     photo_close_kb,
@@ -65,19 +66,37 @@ class TestUsersListKb:
         assert "close" in callbacks
 
     def test_pagination(self):
-        users = [{"uuid": f"u{i}", "name": f"User{i}", "enable": True,
-                  "usage_limit_GB": 50, "current_usage_GB": 0} for i in range(20)]
+        users = [
+            {
+                "uuid": f"u{i}",
+                "name": f"User{i}",
+                "enable": True,
+                "usage_limit_GB": 50,
+                "current_usage_GB": 0,
+            }
+            for i in range(20)
+        ]
         kb = users_list_kb(users, page=0)
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
         # Should have next button
         assert "users_list:1" in callbacks
 
     def test_page_size(self):
-        users = [{"uuid": f"u{i}", "name": f"User{i}", "enable": True,
-                  "usage_limit_GB": 50, "current_usage_GB": 0} for i in range(20)]
+        users = [
+            {
+                "uuid": f"u{i}",
+                "name": f"User{i}",
+                "enable": True,
+                "usage_limit_GB": 50,
+                "current_usage_GB": 0,
+            }
+            for i in range(20)
+        ]
         kb = users_list_kb(users, page=0, page_size=8)
         user_buttons = [
-            btn for row in kb.inline_keyboard for btn in row
+            btn
+            for row in kb.inline_keyboard
+            for btn in row
             if btn.callback_data.startswith("user:")
         ]
         assert len(user_buttons) == 8

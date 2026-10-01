@@ -1,4 +1,5 @@
 """Унифицированные компоненты навигации и пагинации."""
+
 from aiogram.types import InlineKeyboardButton
 
 
@@ -20,12 +21,12 @@ def pagination_row(
         return None
     row = []
     if page > 0:
-        row.append(InlineKeyboardButton(
-            text="◀️", callback_data=f"{cb_prefix}:{page - 1}", style="primary"
-        ))
+        row.append(
+            InlineKeyboardButton(text="◀️", callback_data=f"{cb_prefix}:{page - 1}", style="primary")
+        )
     row.append(InlineKeyboardButton(text=f"{page + 1}/{total_pages}", callback_data="noop"))
     if page < total_pages - 1:
-        row.append(InlineKeyboardButton(
-            text="▶️", callback_data=f"{cb_prefix}:{page + 1}", style="primary"
-        ))
+        row.append(
+            InlineKeyboardButton(text="▶️", callback_data=f"{cb_prefix}:{page + 1}", style="primary")
+        )
     return row

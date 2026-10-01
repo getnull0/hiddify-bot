@@ -1,6 +1,5 @@
 from utils.html import esc as _esc
 
-
 _MODE_LABELS = {
     "no_reset": "без сброса",
     "monthly": "ежемесячно",

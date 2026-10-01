@@ -4,8 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_required = ["BOT_TOKEN", "HIDDIFY_URL", "HIDDIFY_PROXY_PATH",
-             "HIDDIFY_USER_PATH", "HIDDIFY_ADMIN_UUID", "ADMIN_IDS"]
+_required = [
+    "BOT_TOKEN",
+    "HIDDIFY_URL",
+    "HIDDIFY_PROXY_PATH",
+    "HIDDIFY_USER_PATH",
+    "HIDDIFY_ADMIN_UUID",
+    "ADMIN_IDS",
+]
 _missing = [k for k in _required if k not in os.environ]
 if _missing:
     raise SystemExit(f"Missing required env vars: {', '.join(_missing)}. See .env.example")

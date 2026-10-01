@@ -1,4 +1,5 @@
 """Shared utility functions."""
+
 from aiogram.utils.text_decorations import html_decoration as hd
 
 

@@ -1,8 +1,10 @@
-from aiogram import Router, F
+import contextlib
+
+from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import CallbackQuery, Message
 
 from config import ADMIN_IDS, ADMIN_USERNAME
 from filters.admin import IsAdmin
@@ -51,10 +53,8 @@ async def admin_panel(msg: Message, state: FSMContext):
 async def close(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.clear()
-    try:
+    with contextlib.suppress(TelegramBadRequest):
         await cb.message.delete()
-    except TelegramBadRequest:
-        pass
 
 
 @router.callback_query(F.data == "menu", IsAdmin())
