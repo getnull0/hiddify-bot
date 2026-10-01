@@ -27,7 +27,8 @@ class ThrottleMiddleware(BaseMiddleware):
             return await handler(event, data)
         user_id = user.id
         now = monotonic()
-        if now - self._last.get(user_id, 0) < self.rate:
+        last = self._last.get(user_id)
+        if last is not None and now - last < self.rate:
             if isinstance(event, CallbackQuery):
                 await event.answer("⏳ Не так быстро", show_alert=False)
             return None

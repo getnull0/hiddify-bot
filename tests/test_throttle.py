@@ -66,3 +66,10 @@ async def test_memory_is_bounded(monkeypatch):
         await mw(handler, object(), event_data(user_id))
     assert len(mw._last) == 3
     assert list(mw._last) == [7, 8, 9]
+
+
+async def test_first_event_passes_even_right_after_boot(monkeypatch):
+    # monotonic() is the system uptime, so a freshly booted host reports tiny values
+    monkeypatch.setattr(throttle, "monotonic", lambda: 5.0)
+    handler = AsyncMock(return_value="ok")
+    assert await ThrottleMiddleware(rate=60)(handler, object(), event_data(1)) == "ok"
