@@ -98,6 +98,8 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
+      - name: Tests must not leave files behind
+        run: test -z "$(git status --porcelain)" || { git status --short; exit 1; }
 
   build:
     name: docker build
