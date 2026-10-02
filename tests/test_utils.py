@@ -1,7 +1,7 @@
-from formatters import texts
-from utils.html import esc, esc_tail
-from utils.qr import qr_url
-from utils.user_state import is_blocked, limit_gb, user_status
+from hiddify_bot.formatters import texts
+from hiddify_bot.utils.html import esc, esc_tail
+from hiddify_bot.utils.qr import qr_url
+from hiddify_bot.utils.user_state import is_blocked, limit_gb, user_status
 
 
 class TestEscTail:

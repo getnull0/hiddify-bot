@@ -4,7 +4,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-from config import _REQUIRED, Settings
+from hiddify_bot.config import _REQUIRED, Settings
 
 EXAMPLE = Path(__file__).resolve().parent.parent / ".env.example"
 

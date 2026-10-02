@@ -2,10 +2,10 @@
 
 import pytest
 
-import services.account_service as account_svc
-import services.server_service as server_svc
-import services.user_service as svc
-from api.client import HiddifyApiError
+import hiddify_bot.services.account_service as account_svc
+import hiddify_bot.services.server_service as server_svc
+import hiddify_bot.services.user_service as svc
+from hiddify_bot.api.client import HiddifyApiError
 from tests.fakes.panel import FakePanel, node_row, started_ago
 
 

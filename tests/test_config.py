@@ -1,6 +1,6 @@
 import pytest
 
-from config import DEFAULT_QR_API_URL, ConfigError, Settings, _load, _parse_admin_ids
+from hiddify_bot.config import DEFAULT_QR_API_URL, ConfigError, Settings, _load, _parse_admin_ids
 
 BASE_ENV = {
     "BOT_TOKEN": "1:abc",
@@ -63,6 +63,6 @@ def test_parse_admin_ids_rejects_garbage(raw):
 
 def test_load_exits_with_readable_message(monkeypatch):
     monkeypatch.delenv("BOT_TOKEN")
-    monkeypatch.setattr("config.load_dotenv", lambda: None)
+    monkeypatch.setattr("hiddify_bot.config.load_dotenv", lambda: None)
     with pytest.raises(SystemExit, match="BOT_TOKEN"):
         _load()

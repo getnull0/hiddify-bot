@@ -1,6 +1,6 @@
 """Tests for keyboards.inline keyboard builders."""
 
-from keyboards.inline import (
+from hiddify_bot.keyboards.inline import (
     admin_main_kb,
     my_account_kb,
     nodes_kb,

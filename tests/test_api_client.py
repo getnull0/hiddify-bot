@@ -6,8 +6,8 @@ from datetime import date, timedelta
 import aiohttp
 import pytest
 
-from api import close_client, get_client, set_client
-from api.client import API_ERRORS, HiddifyApiError, HiddifyClient, describe_api_error
+from hiddify_bot.api import close_client, get_client, set_client
+from hiddify_bot.api.client import API_ERRORS, HiddifyApiError, HiddifyClient, describe_api_error
 from tests.conftest import make_settings
 from tests.fakes.panel import ADMIN_UUID, FakePanel, node_row, started_ago
 

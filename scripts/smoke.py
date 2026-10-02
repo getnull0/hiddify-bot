@@ -7,8 +7,8 @@ from http import HTTPStatus
 
 import aiohttp
 
-from api.client import API_ERRORS, HiddifyClient, describe_api_error
-from config import HIDDIFY_URL, HIDDIFY_USER_PATH, settings
+from hiddify_bot.api.client import API_ERRORS, HiddifyClient, describe_api_error
+from hiddify_bot.config import HIDDIFY_URL, HIDDIFY_USER_PATH, settings
 
 
 class Report:

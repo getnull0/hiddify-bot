@@ -1,6 +1,6 @@
 import pytest
 
-from utils.validation import parse_finite_float, parse_int
+from hiddify_bot.utils.validation import parse_finite_float, parse_int
 
 
 @pytest.mark.parametrize(("raw", "expected"), [("10", 10.0), ("2.5", 2.5), ("-1", -1.0)])
@@ -20,7 +20,7 @@ def test_parse_int():
 
 
 def test_parse_comment():
-    from utils.validation import parse_comment
+    from hiddify_bot.utils.validation import parse_comment
 
     assert parse_comment("a note") == "a note"
     assert parse_comment("") is None

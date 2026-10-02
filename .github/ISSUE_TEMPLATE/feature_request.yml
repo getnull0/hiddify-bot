@@ -1,0 +1,21 @@
+name: Идея
+description: Предложить новую возможность
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Что хотите получить
+      description: Опишите задачу, а не решение: что вы хотите сделать и почему сейчас неудобно
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Для кого
+      description: Администратор, обычный пользователь или оба
+  - type: textarea
+    id: api
+    attributes:
+      label: Есть ли это в панели Hiddify
+      description: Если знаете, ссылка на страницу или эндпоинт API панели

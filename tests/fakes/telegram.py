@@ -180,5 +180,5 @@ def make_harness(dp: Dispatcher) -> tuple[Harness, logging.Handler]:
     )
     harness = Harness(dp, bot, session)
     collector = _ErrorCollector(harness.unexpected)
-    logging.getLogger("handlers.errors").addHandler(collector)
+    logging.getLogger("hiddify_bot.handlers.errors").addHandler(collector)
     return harness, collector

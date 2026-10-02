@@ -2,13 +2,15 @@
 
 from datetime import date, timedelta
 
-from services.account_service import _days_left, _expiry_date, _sub_url
+from hiddify_bot.services.account_service import _days_left, _expiry_date, _sub_url
 
 
 class TestSubUrl:
     def test_basic(self, monkeypatch):
-        monkeypatch.setattr("services.account_service.HIDDIFY_URL", "https://panel.example.com")
-        monkeypatch.setattr("services.account_service.HIDDIFY_USER_PATH", "sub")
+        monkeypatch.setattr(
+            "hiddify_bot.services.account_service.HIDDIFY_URL", "https://panel.example.com"
+        )
+        monkeypatch.setattr("hiddify_bot.services.account_service.HIDDIFY_USER_PATH", "sub")
         result = _sub_url("abc-123")
         assert result == "https://panel.example.com/sub/abc-123/"
 
