@@ -1,6 +1,6 @@
 """Tests for formatters.server — pure functions, no external deps needed."""
 
-from formatters.server import panel_info, server_status
+from hiddify_bot.formatters.server import panel_info, server_status
 
 
 class TestServerStatus:

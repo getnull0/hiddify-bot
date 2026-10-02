@@ -1,5 +1,5 @@
-from formatters.stats import nodes_text, size, sparkline, stats_card
-from formatters.user import account_card
+from hiddify_bot.formatters.stats import nodes_text, size, sparkline, stats_card
+from hiddify_bot.formatters.user import account_card
 from tests.fakes.panel import ADMIN_UUID, default_dashboard, node_row
 
 

@@ -7,10 +7,10 @@ import pytest
 from aiogram import Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-import api
-from api.client import HiddifyClient
-from bot import create_dispatcher
-from config import ADMIN_IDS, Settings
+import hiddify_bot.api as api
+from hiddify_bot.api.client import HiddifyClient
+from hiddify_bot.app import create_dispatcher
+from hiddify_bot.config import ADMIN_IDS, Settings
 from tests.fakes.panel import ADMIN_UUID, PROXY_PATH, FakePanel
 from tests.fakes.telegram import Harness, make_harness
 
@@ -60,5 +60,5 @@ async def bot(client: HiddifyClient, dispatcher: Dispatcher) -> AsyncIterator[Ha
     dispatcher.fsm.storage = MemoryStorage()  # fresh conversation state for every test
     harness, collector = make_harness(dispatcher)
     yield harness
-    logging.getLogger("handlers.errors").removeHandler(collector)
+    logging.getLogger("hiddify_bot.handlers.errors").removeHandler(collector)
     assert not harness.unexpected, [r.getMessage() for r in harness.unexpected]

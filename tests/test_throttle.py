@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 from aiogram.types import CallbackQuery, Message
 
-from middlewares import throttle
-from middlewares.throttle import ThrottleMiddleware
+from hiddify_bot.middlewares import throttle
+from hiddify_bot.middlewares.throttle import ThrottleMiddleware
 
 
 def event_data(user_id: int | None) -> dict:

@@ -1,0 +1,37 @@
+name: Ошибка
+description: Что-то работает не так, как ожидается
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Сначала запустите `docker compose run --rm bot python -m scripts.smoke` (или `make smoke`): он часто сразу показывает, какая переменная неверна. Не присылайте токены и UUID администратора.
+  - type: textarea
+    id: what
+    attributes:
+      label: Что произошло
+      description: Что вы нажали, что ожидали увидеть и что увидели
+    validations:
+      required: true
+  - type: textarea
+    id: smoke
+    attributes:
+      label: Вывод `smoke`
+      description: Целиком, токены и UUID замажьте
+      render: text
+  - type: input
+    id: bot
+    attributes:
+      label: Версия бота
+      placeholder: "1.2.0 или хеш коммита"
+  - type: input
+    id: panel
+    attributes:
+      label: Версия панели Hiddify
+      placeholder: "14.0.0b5"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Лог бота
+      description: "`docker compose logs --tail 100 bot`"
+      render: text

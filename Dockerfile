@@ -10,4 +10,4 @@ COPY . .
 RUN useradd -m -u 1000 botuser
 USER botuser
 
-CMD ["python", "bot.py"]
+CMD ["python", "-m", "hiddify_bot"]

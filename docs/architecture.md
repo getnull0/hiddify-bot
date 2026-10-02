@@ -1,21 +1,26 @@
 # Architecture
 
 ```
-bot.py            entrypoint: create_dispatcher() (middleware + routers) and main() (polling)
-config.py         Settings.from_env(): validation; module-level aliases for call sites
-api/client.py     HiddifyClient: one aiohttp session, errors, users cache, every panel call
-api/__init__.py   get_client() / set_client() / close_client(): the process-wide client
-services/         business logic over the client (user, account, server)
-handlers/         aiogram routers: common, account, server, users/ (package), errors
-  users/          browse.py, actions.py (one-tap), wizards.py, views.py (card rendering), states.py
-keyboards/        inline keyboard builders; nav.py has the shared Back/Home/Close and pagination rows
-formatters/       pure functions turning panel dicts into HTML; texts.py holds shared messages
-filters/          IsAdmin
-middlewares/      ThrottleMiddleware (per-user rate limit)
-utils/            html, telegram (typed event accessors), validation, user_state, qr, types
-scripts/          check_comments.py: CI gate for comment language and length
-tests/            fakes/ (fake Hiddify panel + fake Telegram), unit and end-to-end tests
+hiddify_bot/             the application (run with: python -m hiddify_bot)
+  __main__.py            entry point
+  app.py                 create_dispatcher() (middleware + routers), startup check, main() polling loop
+  config.py              Settings.from_env(): validation; module-level aliases for call sites
+  api/client.py          HiddifyClient: one aiohttp session, errors, users cache, every panel call
+  api/__init__.py        get_client() / set_client() / close_client(): the process-wide client
+  services/              business logic over the client (user, account, server)
+  handlers/              aiogram routers: common, account, server, users/ (package), errors
+    users/               browse.py, actions.py (one-tap), wizards.py, views.py (card rendering), states.py
+  keyboards/             inline keyboard builders; nav.py has the shared Back/Home/Close and pagination rows
+  formatters/            pure functions turning panel dicts into HTML; texts.py holds shared messages
+  filters/               IsAdmin
+  middlewares/           ThrottleMiddleware (per-user rate limit)
+  utils/                 html, telegram (typed event accessors), validation, user_state, qr, types
+scripts/                 smoke.py (check your own panel), check_comments.py (CI gate)
+tests/                   fakes/ (fake Hiddify panel + fake Telegram), unit and end-to-end tests
+docs/                    this documentation
 ```
+
+Everything the bot imports lives under `hiddify_bot/`; the repository root only carries tooling, docs and tests.
 
 Control flow: Telegram update -> ThrottleMiddleware -> router (IsAdmin where needed) -> handler -> service -> `HiddifyClient` -> panel. Errors anywhere land in `handlers/errors.py`.
 

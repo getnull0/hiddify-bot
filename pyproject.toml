@@ -1,6 +1,6 @@
 [project]
 name = "hiddify-bot"
-version = "1.0.0"
+version = "1.2.0"
 description = "Telegram bot for managing a Hiddify VPN panel"
 requires-python = ">=3.12"
 
@@ -54,7 +54,7 @@ ignore = [
 max-complexity = 12
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "config", "filters", "formatters", "handlers", "keyboards", "middlewares", "services", "utils"]
+known-first-party = ["hiddify_bot"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -84,8 +84,9 @@ min_confidence = 60
 exclude_dirs = ["tests", ".venv", ".git"]
 
 [tool.coverage.run]
-source = ["."]
-omit = ["tests/*", "scripts/*", ".venv/*"]
+source = ["hiddify_bot"]
+# The entry point is a one-line call into app.main(), which is tested
+omit = ["hiddify_bot/__main__.py"]
 
 [tool.coverage.report]
 # Ratchet: raise this as handler tests are added, never lower it

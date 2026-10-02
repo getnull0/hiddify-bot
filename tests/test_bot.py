@@ -3,8 +3,10 @@
 import logging
 from unittest.mock import AsyncMock
 
-import bot as bot_main
-from api.client import HiddifyClient
+import pytest
+
+import hiddify_bot.app as bot_main
+from hiddify_bot.api.client import HiddifyClient
 from tests.fakes.panel import FakePanel
 from tests.fakes.telegram import make_harness
 
@@ -14,19 +16,19 @@ def test_dispatcher_has_every_router(dispatcher):
 
 
 async def test_check_panel_reports_success(client: HiddifyClient, caplog):
-    with caplog.at_level(logging.INFO, logger="bot"):
+    with caplog.at_level(logging.INFO, logger="hiddify_bot"):
         await bot_main.check_panel()
     assert "Hiddify panel OK (admin: Owner, super_admin)" in caplog.text
 
 
 async def test_check_panel_explains_bad_credentials(panel: FakePanel, caplog):
-    import api
+    import hiddify_bot.api as api
     from tests.conftest import make_settings
 
     bad = HiddifyClient(make_settings(panel.base_url, HIDDIFY_ADMIN_UUID="wrong"))
     api.set_client(bad)
     try:
-        with caplog.at_level(logging.WARNING, logger="bot"):
+        with caplog.at_level(logging.WARNING, logger="hiddify_bot"):
             await bot_main.check_panel()
     finally:
         await bad.close()
@@ -46,3 +48,21 @@ async def test_main_wires_everything_and_cleans_up(client: HiddifyClient, dispat
     polling.assert_awaited_once_with(harness.bot, skip_updates=True)
     commands = [c for c in harness.session.calls if type(c).__name__ == "SetMyCommands"]
     assert [cmd.command for cmd in commands[0].commands] == ["start"]
+
+
+async def test_main_closes_its_sessions_when_startup_fails(
+    client: HiddifyClient, dispatcher, monkeypatch
+):
+    harness, _ = make_harness(dispatcher)
+    closed = AsyncMock()
+    monkeypatch.setattr(harness.session, "close", closed)
+    monkeypatch.setattr(bot_main, "Bot", lambda **_kwargs: harness.bot)
+    monkeypatch.setattr(bot_main, "create_dispatcher", lambda: dispatcher)
+    monkeypatch.setattr(
+        harness.bot, "set_my_commands", AsyncMock(side_effect=RuntimeError("no network"))
+    )
+
+    with pytest.raises(RuntimeError, match="no network"):
+        await bot_main.main()
+
+    closed.assert_awaited_once()

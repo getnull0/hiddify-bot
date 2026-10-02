@@ -24,7 +24,7 @@ async def test_unexpected_error_shows_a_generic_alert(bot: Harness, monkeypatch)
     async def explode(*_a, **_k):
         raise RuntimeError("kaboom")
 
-    monkeypatch.setattr("services.server_service.get_status", explode)
+    monkeypatch.setattr("hiddify_bot.services.server_service.get_status", explode)
     await bot.press("server_status", ADMIN_ID)
     assert bot.alerts == ["❌ Ошибка сервера, попробуй позже"]
     assert [r.getMessage() for r in bot.unexpected] == ["Unhandled error: kaboom"]
@@ -35,7 +35,7 @@ async def test_unexpected_error_on_a_text_message(bot: Harness, monkeypatch):
     async def explode(*_a, **_k):
         raise RuntimeError("kaboom")
 
-    monkeypatch.setattr("services.user_service.search", explode)
+    monkeypatch.setattr("hiddify_bot.services.user_service.search", explode)
     await bot.press("user_search", ADMIN_ID)
     await bot.text("x", ADMIN_ID)
     assert bot.last_text == "❌ Ошибка сервера, попробуй позже"

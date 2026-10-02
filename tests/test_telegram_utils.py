@@ -4,7 +4,7 @@ from typing import Any, cast
 import pytest
 from aiogram.types import CallbackQuery, Message
 
-from utils.telegram import (
+from hiddify_bot.utils.telegram import (
     MissingEventDataError,
     callback_arg,
     data_of,

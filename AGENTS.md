@@ -7,7 +7,7 @@ Telegram bot (aiogram 3, Python 3.12) that manages a self-hosted [Hiddify](https
 ```bash
 pip install -r requirements-dev.txt && pre-commit install
 cp .env.example .env              # fill in your values; never commit .env
-python bot.py                     # run locally
+python -m hiddify_bot            # run locally
 docker compose up -d --build      # production path
 ```
 
@@ -16,6 +16,7 @@ docker compose up -d --build      # production path
 ```bash
 make check       # every CI gate: lint, typecheck, deadcode, security, comments, test
 make test        # pytest with coverage (fail_under in pyproject.toml)
+make smoke       # check your real panel from .env (read-only); smoke-write adds a create/delete cycle
 make lock        # recompile requirements*.txt after editing the .in files
 ```
 
@@ -58,4 +59,4 @@ Edit `requirements.in` or `requirements-dev.in`, then run `make lock`. Never edi
 
 - Architecture, conventions and design decisions: `docs/architecture.md`
 - What the bot relies on in the panel API: `docs/hiddify-api.md`
-- User-facing setup guide: `README.md`
+- User-facing setup guide: `README.md`; release notes: `CHANGELOG.md`; contributor guide: `.github/CONTRIBUTING.md`
