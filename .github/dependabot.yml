@@ -10,8 +10,12 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # The project is tested on Python 3.12; moving the image is a deliberate, separate change
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
